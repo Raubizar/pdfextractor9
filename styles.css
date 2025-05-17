@@ -1,416 +1,76 @@
-:root {
-  --primary-color: #3b82f6;
-  --primary-light: #93c5fd;
-  --primary-dark: #1d4ed8;
-  --secondary-color: #f3f4f6;
-  --text-color: #1f2937;
-  --text-light: #6b7280;
-  --background: #ffffff;
-  --error-color: #ef4444;
-  --success-color: #10b981;
-  --border-radius: 8px;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+/* Append to existing CSS file */
+
+/* Results table styles */
+.results-table-container {
+  width: 100%;
+  margin: 20px 0;
+  overflow-x: auto;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-body {
-  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-  color: var(--text-color);
-  background-color: var(--background);
-  line-height: 1.6;
+.results-table th, 
+.results-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-#app {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+.results-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 2rem;
+.results-table tr:nth-child(even) {
+  background-color: #f9f9f9;
 }
 
-h1 {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  color: var(--primary-dark);
+.results-table tr:hover {
+  background-color: #f1f1f1;
 }
 
-.subtitle {
-  color: var(--text-light);
-  font-size: 1.1rem;
+/* Confidence score indicators */
+.high-confidence {
+  color: #2e7d32;
+  font-weight: bold;
 }
 
-.upload-container {
-  max-width: 600px;
-  margin: 0 auto;
+.medium-confidence {
+  color: #f57c00;
+  font-weight: bold;
 }
 
-.upload-container.minimized {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out;
+.low-confidence {
+  color: #c62828;
+  font-weight: bold;
 }
 
-.upload-options {
-  margin-bottom: 1rem;
-}
-
-.toggle-container {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.toggle-container input[type="checkbox"] {
-  margin-right: 0.5rem;
-}
-
-.toggle-label {
-  color: var(--text-light);
-}
-
-.drop-zone {
-  border: 2px dashed var(--primary-light);
-  border-radius: var(--border-radius);
-  padding: 3rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background-color: var(--secondary-color);
-}
-
-.drop-zone:hover, .drop-zone.active {
-  border-color: var(--primary-color);
-  background-color: rgba(147, 197, 253, 0.1);
-}
-
-.drop-zone .icon {
-  margin-bottom: 1rem;
-  color: var(--primary-color);
-}
-
-.drop-text {
-  color: var(--text-light);
-  font-size: 1.1rem;
-}
-
-.browse-text {
-  color: var(--primary-color);
-  text-decoration: underline;
-  font-weight: 500;
-}
-
-.file-input {
-  display: none;
-}
-
-.results-container {
-  margin-top: 2rem;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding: 0.5rem;
-  background-color: var(--secondary-color);
-  border-radius: var(--border-radius);
-}
-
-.page-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.primary {
-  background-color: var(--primary-color);
-  color: white;
-}
-
-.primary:hover {
-  background-color: var(--primary-dark);
-}
-
-.secondary {
-  background-color: var(--secondary-color);
-  color: var(--text-color);
-  border: 1px solid #e5e7eb;
-}
-
-.secondary:hover {
-  background-color: #e5e7eb;
-}
-
-.icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
-  background-color: transparent;
-}
-
-.icon-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.viewer-container {
-  display: flex;
-  gap: 1.5rem;
-  height: calc(100vh - 250px);
-  min-height: 400px;
-}
-
-.pdf-viewer {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--border-radius);
-  position: relative;
-  overflow: auto;
-  background-color: #f9fafb;
-}
-
-.pdf-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.8);
-  z-index: 10;
-}
-
-#pdf-canvas {
-  display: block;
-  margin: 0 auto;
-}
-
-.text-content {
-  flex: 1;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--border-radius);
-  padding: 1rem;
-  background-color: white;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.text-content h2 {
-  font-size: 1.25rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.text-wrapper {
-  overflow-y: auto;
-  flex-grow: 1;
-}
-
-#extracted-text {
+.extracted-text-content {
+  margin-top: 20px;
+  padding: 15px;
+  border-top: 1px solid #e0e0e0;
   white-space: pre-wrap;
-  font-family: monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 14px;
 }
 
-.file-list {
-  margin-bottom: 1.5rem;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--border-radius);
-  overflow: hidden;
-}
-
-.file-item {
-  display: grid;
-  grid-template-columns: 1fr 2fr auto;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  align-items: center;
-}
-
-.file-item:last-child {
-  border-bottom: none;
-}
-
-.file-item.error {
-  background-color: rgba(239, 68, 68, 0.1);
-}
-
-.file-name {
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-right: 1rem;
-}
-
-.file-status {
-  color: var(--text-light);
-  font-size: 0.9rem;
-}
-
-.view-button {
-  padding: 0.35rem 0.75rem;
-  background-color: var(--primary-color);
+/* Export button */
+.export-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #4caf50;
   color: white;
   border: none;
-  border-radius: var(--border-radius);
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: background-color 0.2s;
+  font-size: 14px;
 }
 
-.view-button:hover {
-  background-color: var(--primary-dark);
-}
-
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(59, 130, 246, 0.2);
-  border-left-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.hidden {
-  display: none !important;
-}
-
-/* Grid visualization (optional) */
-.grid-visualization {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  margin-top: 1rem;
-  border: 1px solid #e5e7eb;
-}
-
-.grid-cell {
-  border: 1px solid #e5e7eb;
-  padding: 0.5rem;
-  min-height: 80px;
-  background-color: #f9fafb;
-  font-size: 0.8rem;
-  position: relative;
-}
-
-.grid-cell-title {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.grid-cell.candidate {
-  background-color: rgba(16, 185, 129, 0.1);
-  border: 2px solid var(--success-color);
-}
-
-/* Styles for table visualization */
-.table-structure-visualization {
-  margin-top: 1rem;
-  border: 1px solid #e5e7eb;
-  padding: 0.5rem;
-  background-color: #f9fafb;
-}
-
-.table-row {
-  display: flex;
-  border-bottom: 1px dashed #e5e7eb;
-  padding: 0.25rem 0;
-}
-
-.table-row:last-child {
-  border-bottom: none;
-}
-
-.table-cell {
-  padding: 0.25rem 0.5rem;
-  border-right: 1px dashed #e5e7eb;
-  font-family: monospace;
-  font-size: 0.8rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.table-cell:last-child {
-  border-right: none;
-}
-
-.table-cell-id {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--text-color);
-  font-size: 0.7rem;
-  padding: 0.1rem 0.2rem;
-  border-radius: 2px;
-  margin-right: 0.25rem;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  #app {
-    padding: 1rem;
-  }
-  
-  .viewer-container {
-    flex-direction: column;
-    height: auto;
-  }
-  
-  .pdf-viewer, .text-content {
-    height: 400px;
-  }
-  
-  .file-item {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    gap: 0.5rem;
-  }
-  
-  .view-button {
-    grid-row: 3;
-    width: 100%;
-  }
+.export-button:hover {
+  background-color: #388e3c;
 }
