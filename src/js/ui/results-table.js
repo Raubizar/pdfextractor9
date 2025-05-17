@@ -3,7 +3,8 @@
  * Results table component for displaying extraction results
  */
 
-import { Table } from '../../components/ui/table.js';
+// Remove the Table import as we're not actually using it
+// The Table component is defined in a .tsx file but we're using vanilla JS here
 
 // Create a results table for extracted fields
 export function createResultsTable(extractedFields) {
