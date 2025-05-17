@@ -6,6 +6,7 @@
 import { validateFieldValue } from './field-validation.js';
 import { fieldPatterns } from './title-block-constants.js';
 import { isKnownLabel, getFieldType, parseCellId } from './field-matcher.js';
+import { updateAdjacencyWithMergedCells } from './line-detection/merged-cell-detection.js';
 
 /**
  * Extract field-value pairs from the detected table structure with improved regex validation
@@ -39,7 +40,82 @@ export function extractFieldsFromTableStructure(tableStructure, titleBlockItems,
     cellMap[item.cellId].push(item);
   });
   
-  // For each item that looks like a label, find its value
+  // Update adjacency map if cells have merge information
+  let enhancedAdjacencyMap = cellAdjacencyMap;
+  if (useDetectedCells && cells.some(cell => cell.hasOwnProperty('isMerged'))) {
+    enhancedAdjacencyMap = updateAdjacencyWithMergedCells(cells, cellAdjacencyMap);
+  }
+  
+  // Process candidate field-value pairs
+  const fieldValueCandidates = [];
+  
+  // Approach 1: Find field-value pairs from cell roles
+  Object.entries(cellMap).forEach(([cellId, cellItems]) => {
+    // Skip cells with no items
+    if (!cellItems || cellItems.length === 0) return;
+    
+    // Check if any item has cell role information
+    const hasRoleInfo = cellItems.some(item => item.cellRole);
+    if (hasRoleInfo) {
+      // Case 1: Find label cells with adjacent value cells
+      if (cellItems[0].cellRole === 'label') {
+        // Get label text from all items in this cell
+        const labelText = cellItems.map(item => item.str.trim()).join(' ');
+        const fieldType = getFieldType(labelText);
+        
+        if (fieldType && useDetectedCells && enhancedAdjacencyMap[cellId]) {
+          // Check right and bottom cells for values
+          ['right', 'bottom'].forEach(direction => {
+            const adjacentCellId = enhancedAdjacencyMap[cellId][direction];
+            if (adjacentCellId && cellMap[adjacentCellId]) {
+              const adjacentItems = cellMap[adjacentCellId];
+              
+              // Skip if adjacent cell is also a label
+              if (adjacentItems[0].cellRole === 'label') return;
+              
+              // Add as candidate with high confidence due to role-based detection
+              fieldValueCandidates.push({
+                fieldType,
+                labelText,
+                labelCellId: cellId,
+                valueCellId: adjacentCellId,
+                valueItems: adjacentItems,
+                distance: 1,
+                confidence: 0.9,
+                method: 'cell-role-adjacency'
+              });
+            }
+          });
+        }
+      }
+      
+      // Case 2: Find in-cell field-value patterns
+      const itemWithPattern = cellItems.find(item => 
+        item.cellFieldValue && item.cellFieldValue.hasPattern
+      );
+      
+      if (itemWithPattern) {
+        const { label, value, confidence, pattern } = itemWithPattern.cellFieldValue;
+        const fieldType = getFieldType(label);
+        
+        if (fieldType) {
+          // Add as candidate
+          fieldValueCandidates.push({
+            fieldType,
+            labelText: label,
+            labelCellId: cellId,
+            valueCellId: cellId,
+            valueText: value,
+            distance: 0,
+            confidence: confidence * 0.95, // Slightly reduce confidence as it's in-cell pattern
+            method: `in-cell-pattern-${pattern}`
+          });
+        }
+      }
+    }
+  });
+  
+  // Approach 2: Traditional method looking for label text directly
   titleBlockItems.forEach(item => {
     if (!item.cellId) return;
     
@@ -49,24 +125,24 @@ export function extractFieldsFromTableStructure(tableStructure, titleBlockItems,
     // Skip if not a label or already processed
     if (!fieldType || processedCellIds.has(item.cellId)) return;
     
-    // Mark this cell as processed
+    // Mark this cell as processed for the traditional approach
     processedCellIds.add(item.cellId);
     
     // Strategy depends on whether we're using detected cells or not
     if (useDetectedCells) {
       findFieldValueInDetectedCells(
-        extractedFields, 
+        fieldValueCandidates, 
         fieldType, 
         item, 
         itemText, 
         cellMap, 
-        cellAdjacencyMap, 
+        enhancedAdjacencyMap, 
         cells, 
         textStats
       );
     } else {
       findFieldValueInGrid(
-        extractedFields, 
+        fieldValueCandidates, 
         fieldType, 
         item, 
         itemText, 
@@ -74,6 +150,63 @@ export function extractFieldsFromTableStructure(tableStructure, titleBlockItems,
         textStats
       );
     }
+  });
+  
+  // Select the best candidate for each field type
+  const fieldTypesMap = {};
+  
+  fieldValueCandidates.forEach(candidate => {
+    if (!fieldTypesMap[candidate.fieldType]) {
+      fieldTypesMap[candidate.fieldType] = candidate;
+    } else {
+      const existing = fieldTypesMap[candidate.fieldType];
+      
+      // Select the candidate with higher confidence
+      if (candidate.confidence > existing.confidence) {
+        fieldTypesMap[candidate.fieldType] = candidate;
+      }
+    }
+  });
+  
+  // Convert candidates to final extracted fields
+  Object.entries(fieldTypesMap).forEach(([fieldType, candidate]) => {
+    // For candidates with value items, get the text
+    let valueText = candidate.valueText;
+    if (!valueText && candidate.valueItems) {
+      valueText = candidate.valueItems.map(item => item.str.trim()).join(' ');
+    }
+    
+    // Calculate additional attributes for validation
+    const textAttributes = {
+      fontSize: candidate.valueItems?.[0]?.fontSize,
+      medianFontSize,
+      fontName: candidate.valueItems?.[0]?.fontName,
+      fillColor: candidate.valueItems?.[0]?.fillColor,
+      bodyTextColor,
+      blockScore: candidate.distance === 0 ? 5 : 3, // Higher score for same-cell matches
+      method: candidate.method // Store detection method for confidence calculation
+    };
+    
+    // Validate with enhanced confidence calculation
+    const validation = validateFieldValue(fieldType, valueText, textAttributes);
+    
+    // Store the extracted field
+    extractedFields[fieldType] = {
+      label: candidate.labelText,
+      value: valueText || '',
+      labelCellId: candidate.labelCellId,
+      valueCellId: candidate.valueCellId,
+      distance: candidate.distance,
+      confidence: Math.max(validation.confidence, candidate.confidence * 0.9),
+      validationDetails: validation,
+      inSameCell: candidate.labelCellId === candidate.valueCellId,
+      method: candidate.method,
+      textAttributes: {
+        fontSize: candidate.valueItems?.[0]?.fontSize,
+        fontName: candidate.valueItems?.[0]?.fontName,
+        fillColor: candidate.valueItems?.[0]?.fillColor
+      }
+    };
   });
   
   return extractedFields;

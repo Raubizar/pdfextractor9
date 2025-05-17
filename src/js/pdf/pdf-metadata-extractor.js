@@ -5,7 +5,12 @@
 
 import { determinePaperSize, determineOrientation } from '../utils/paper-detection.js';
 import { analyzeTitleBlock } from '../utils/grid-analysis.js';
-import { extractLinesAndShapes, assignTextItemsToCells, getCellAdjacencyMap } from '../utils/line-detection.js';
+import { 
+  extractLinesAndShapes, 
+  assignTextItemsToCells, 
+  getCellAdjacencyMap,
+  detectMergedCells
+} from '../utils/line-detection/index.js';
 
 // Process the first page of a PDF to extract metadata
 export function extractPDFMetadata(page, fileName) {
@@ -100,8 +105,19 @@ export async function processTextContent(textContent, dimensions, page) {
     if (lineStructures && lineStructures.tableCells && lineStructures.tableCells.length > 0) {
       tableCells = lineStructures.tableCells;
       
-      // Assign text items to detected cells
-      enhancedTextItems = assignTextItemsToCells(textItems, tableCells);
+      // Detect merged cells if present
+      if (tableCells.some(cell => !cell.hasOwnProperty('isMerged'))) {
+        tableCells = detectMergedCells(tableCells);
+      }
+      
+      // Create text statistics object for cell role detection
+      const textStats = {
+        medianFontSize, 
+        bodyTextColor
+      };
+      
+      // Assign text items to detected cells with enhanced role detection
+      enhancedTextItems = assignTextItemsToCells(textItems, tableCells, textStats);
       
       // Create adjacency map for field-value detection
       cellAdjacencyMap = getCellAdjacencyMap(tableCells);

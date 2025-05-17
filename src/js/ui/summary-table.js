@@ -24,6 +24,22 @@ export function formatConfidence(confidence) {
   return `<span class="${confidenceClass}">${icon} ${confidencePercent}%</span>`;
 }
 
+// Format detection method for display
+function formatMethod(method) {
+  if (!method) return 'Unknown';
+  
+  switch(method) {
+    case 'cell-role-adjacency':
+      return '<span class="method-tag role-based">Role-Based</span>';
+    case 'in-cell-pattern-colon':
+    case 'in-cell-pattern-inline-colon':
+    case 'in-cell-pattern-dash':
+      return '<span class="method-tag pattern-based">Pattern-Based</span>';
+    default:
+      return '<span class="method-tag traditional">Traditional</span>';
+  }
+}
+
 // Create summary table for all processed files
 export function createSummaryTable(extractedTextItems) {
   // Create table container
@@ -58,7 +74,8 @@ export function createSummaryTable(extractedTextItems) {
       <th>Revision</th>
       <th>Scale</th>
       <th>Date</th>
-      <th>Confidence Summary</th>
+      <th>Detection Method</th>
+      <th>Confidence</th>
     </tr>
   `;
   table.appendChild(thead);
@@ -94,10 +111,11 @@ export function createSummaryTable(extractedTextItems) {
       if (field && field.value) {
         return { 
           value: field.value,
-          confidence: field.confidence
+          confidence: field.confidence,
+          method: field.method || 'Unknown'
         };
       }
-      return { value: 'N/A', confidence: null };
+      return { value: 'N/A', confidence: null, method: null };
     };
     
     // Get field data
@@ -107,8 +125,28 @@ export function createSummaryTable(extractedTextItems) {
     const scale = getFieldData('scale');
     const date = getFieldData('date');
     
+    // Determine the most common detection method
+    const methods = [drawingNumber, title, revision, scale, date]
+      .map(field => field.method)
+      .filter(Boolean);
+    
+    const methodCounts = {};
+    methods.forEach(method => {
+      methodCounts[method] = (methodCounts[method] || 0) + 1;
+    });
+    
+    let primaryMethod = 'Unknown';
+    let maxCount = 0;
+    Object.entries(methodCounts).forEach(([method, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        primaryMethod = method;
+      }
+    });
+    
     // Format overall confidence display
     const confidenceDisplay = formatConfidence(avgConfidence);
+    const methodDisplay = formatMethod(primaryMethod);
     
     // Add cells to the row
     row.innerHTML = `
@@ -118,6 +156,7 @@ export function createSummaryTable(extractedTextItems) {
       <td title="Confidence: ${revision.confidence !== null ? (revision.confidence * 100).toFixed(0) + '%' : 'N/A'}">${revision.value}</td>
       <td title="Confidence: ${scale.confidence !== null ? (scale.confidence * 100).toFixed(0) + '%' : 'N/A'}">${scale.value}</td>
       <td title="Confidence: ${date.confidence !== null ? (date.confidence * 100).toFixed(0) + '%' : 'N/A'}">${date.value}</td>
+      <td>${methodDisplay}</td>
       <td>${confidenceDisplay}</td>
     `;
     
@@ -142,7 +181,7 @@ export function createSummaryTable(extractedTextItems) {
 
 // Export summary data as CSV
 function exportSummaryAsCSV(extractedTextItems) {
-  let csvContent = 'File Name,Drawing Number,Title,Revision,Scale,Date,Confidence\n';
+  let csvContent = 'File Name,Drawing Number,Title,Revision,Scale,Date,Method,Confidence\n';
   
   Object.entries(extractedTextItems).forEach(([fileId, fileData]) => {
     const extractedFields = fileData.titleBlock?.tableStructure?.extractedFields || {};
@@ -155,6 +194,12 @@ function exportSummaryAsCSV(extractedTextItems) {
         return field.value.replace(/"/g, '""');
       }
       return 'N/A';
+    };
+    
+    // Helper to get method
+    const getMethod = (fieldType) => {
+      const field = extractedFields[fieldType];
+      return field && field.method ? field.method : 'Unknown';
     };
     
     // Helper to get confidence value
@@ -171,6 +216,25 @@ function exportSummaryAsCSV(extractedTextItems) {
       ? confidenceValues.reduce((sum, val) => sum + val, 0) / confidenceValues.length
       : 0;
     
+    // Determine most common method
+    const methods = ['drawing', 'title', 'revision', 'scale', 'date']
+      .map(type => getMethod(type))
+      .filter(method => method !== 'Unknown');
+    
+    const methodCounts = {};
+    methods.forEach(method => {
+      methodCounts[method] = (methodCounts[method] || 0) + 1;
+    });
+    
+    let primaryMethod = 'Unknown';
+    let maxCount = 0;
+    Object.entries(methodCounts).forEach(([method, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        primaryMethod = method;
+      }
+    });
+    
     // Create CSV row
     csvContent += `"${fileData.fileName}",`;
     csvContent += `"${getFieldValue('drawing')}",`;
@@ -178,6 +242,7 @@ function exportSummaryAsCSV(extractedTextItems) {
     csvContent += `"${getFieldValue('revision')}",`;
     csvContent += `"${getFieldValue('scale')}",`;
     csvContent += `"${getFieldValue('date')}",`;
+    csvContent += `"${primaryMethod}",`;
     csvContent += `${(avgConfidence * 100).toFixed(0)}%\n`;
   });
   
