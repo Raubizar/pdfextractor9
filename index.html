@@ -1,26 +1,87 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>pdf-seer-web-viewer</title>
-    <meta name="description" content="Lovable Generated Project" />
+    <title>PDF Parser</title>
+    <meta name="description" content="Browser-based PDF parsing application" />
     <meta name="author" content="Lovable" />
-
-    <meta property="og:title" content="pdf-seer-web-viewer" />
-    <meta property="og:description" content="Lovable Generated Project" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-  </head>
-
-  <body>
-    <div id="root"></div>
+    
+    <link rel="stylesheet" href="styles.css">
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- PDF.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <h1>PDF Parser</h1>
+        <p class="subtitle">Extract and analyze PDF content right in your browser</p>
+      </header>
+      
+      <main>
+        <div class="upload-container" id="upload-container">
+          <div class="drop-zone" id="drop-zone">
+            <div class="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <path d="M12 18v-6"></path>
+                <path d="M9 15l3-3 3 3"></path>
+              </svg>
+            </div>
+            <p class="drop-text">Drag & drop your PDF here or <span class="browse-text">browse</span></p>
+            <input type="file" id="file-input" accept="application/pdf" class="file-input" />
+          </div>
+        </div>
+        
+        <div class="results-container hidden" id="results-container">
+          <div class="toolbar">
+            <button id="back-button" class="button secondary">Back</button>
+            <div class="page-controls">
+              <button id="prev-page" class="button icon-button" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <span id="page-info">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+              <button id="next-page" class="button icon-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+            <button id="extract-text-button" class="button primary">Extract Text</button>
+          </div>
+          
+          <div class="viewer-container">
+            <div class="pdf-viewer">
+              <div class="pdf-loading" id="pdf-loading">
+                <div class="spinner"></div>
+                <p>Loading PDF...</p>
+              </div>
+              <canvas id="pdf-canvas"></canvas>
+            </div>
+            
+            <div class="text-content hidden" id="text-content">
+              <h2>Extracted Text</h2>
+              <div class="text-wrapper">
+                <pre id="extracted-text"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      <div class="loading-overlay hidden" id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Processing...</p>
+      </div>
+    </div>
+    
+    <script>
+      // Set up PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    </script>
+    <script src="app.js"></script>
   </body>
 </html>
