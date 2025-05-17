@@ -1,3 +1,4 @@
+
 /**
  * Main application entry point
  */
@@ -8,7 +9,6 @@ import { createFileListItem, updateFileListItem, displayFileDetails } from './ui
 import { processFirstPage, loadPDFForViewing, extractTextFromPage } from './pdf/pdf-loader.js';
 import { renderPage, queueRenderPage, updatePageButtons } from './pdf/pdf-viewer.js';
 import { showLoadingOverlay, hideLoadingOverlay, updatePageDisplay } from './ui/page-navigation.js';
-import { exportMetadataAsJson } from './ui/results-table.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
@@ -29,16 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingOverlay = document.getElementById('loading-overlay');
   const fileList = document.getElementById('file-list');
   const multipleFilesToggle = document.getElementById('multiple-files');
-  
-  // Additional element
-  const exportMetadataButton = document.createElement('button');
-  exportMetadataButton.id = 'export-metadata';
-  exportMetadataButton.className = 'export-button';
-  exportMetadataButton.textContent = 'Export Metadata';
-  exportMetadataButton.style.display = 'none';
-  
-  // Add export button to text content area
-  textContent.appendChild(exportMetadataButton);
   
   // State
   let pdfDoc = null;
@@ -77,9 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
           viewButton.addEventListener('click', () => {
             currentFileId = fileId;
             displayFileDetails(fileId, extractedTextItems, textContent, extractedText);
-            
-            // Show export button when file details are displayed
-            exportMetadataButton.style.display = 'block';
           });
         }
       },
@@ -193,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Handle back button - hide export button when going back
+  // Handle back button
   backButton.addEventListener('click', () => {
     pdfDoc = null;
     currentPage = 1;
@@ -201,9 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsContainer.classList.add('hidden');
     textContent.classList.add('hidden');
     fileInput.value = '';
-    
-    // Hide export button
-    exportMetadataButton.style.display = 'none';
   });
   
   // Handle window resize

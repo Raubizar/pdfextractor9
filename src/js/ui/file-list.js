@@ -1,8 +1,7 @@
+
 /**
  * File list UI functionality
  */
-
-import { createResultsTable, createMetadataObject, exportMetadataAsJson, formatConfidence } from './results-table.js';
 
 // Create a file list item
 export function createFileListItem(fileName, status, fileId, type = 'normal') {
@@ -48,29 +47,8 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
     // Display text content
     textContentElement.classList.remove('hidden');
     
-    // Create metadata object for export
-    const metadata = createMetadataObject(fileData);
-    
-    // Store metadata in a data attribute for potential export
-    extractedTextElement.dataset.metadata = exportMetadataAsJson(metadata);
-    
-    // Create the results table if there are extracted fields
-    if (fileData.titleBlock?.tableStructure?.extractedFields) {
-      const resultsTable = createResultsTable(fileData.titleBlock.tableStructure.extractedFields);
-      
-      // Clear the container and add the table
-      extractedTextElement.innerHTML = '';
-      extractedTextElement.appendChild(resultsTable);
-      
-      // Add the text content after the table
-      const textContent = document.createElement('pre');
-      textContent.className = 'extracted-text-content';
-      textContent.textContent = formatAllFileDetails(fileData);
-      extractedTextElement.appendChild(textContent);
-    } else {
-      // Format content by combining different sections if no table structure
-      extractedTextElement.textContent = formatAllFileDetails(fileData);
-    }
+    // Format content by combining different sections
+    extractedTextElement.textContent = formatAllFileDetails(fileData);
   }
 }
 
