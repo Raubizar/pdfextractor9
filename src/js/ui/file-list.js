@@ -53,6 +53,7 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
                        `  Keyword Count: ${titleBlock.bestCell.count}\n`;
     
     let tableInfo = '';
+    let extractedFieldsInfo = '';
     
     // Add table structure information if available
     if (titleBlock.tableStructure && titleBlock.tableStructure.rows.length > 0) {
@@ -87,6 +88,18 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
           tableInfo += `  - ${cellId}: ${items.map(item => `"${item.str}"`).join(', ')}\n`;
         });
       }
+      
+      // Add extracted fields information if available
+      if (titleBlock.tableStructure.extractedFields) {
+        const fields = titleBlock.tableStructure.extractedFields;
+        
+        extractedFieldsInfo = `\nExtracted Field-Value Pairs:\n`;
+        
+        Object.entries(fields).forEach(([fieldType, fieldData]) => {
+          extractedFieldsInfo += `  - ${fieldType.toUpperCase()}: ${fieldData.label} → "${fieldData.value}"\n`;
+          extractedFieldsInfo += `    (Label Cell: ${fieldData.labelCellId}, Value Cell: ${fieldData.valueCellId || 'N/A'}, Distance: ${fieldData.distance})\n`;
+        });
+      }
     }
     
     const contentInfo = `\n------------------------\n\nText Elements:\n\n`;
@@ -100,6 +113,6 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
              `------------------------`;
     }).join('\n');
     
-    extractedTextElement.textContent = headerInfo + tableInfo + contentInfo + formattedText;
+    extractedTextElement.textContent = headerInfo + tableInfo + extractedFieldsInfo + contentInfo + formattedText;
   }
 }

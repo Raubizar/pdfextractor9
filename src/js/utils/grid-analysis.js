@@ -19,6 +19,18 @@ export const titleBlockKeywords = [
   "drawing no", "dwg no", "title", "project", "scale", "rev", "date"
 ];
 
+// Common field labels to search for and extract
+export const fieldLabels = {
+  "drawing": ["drawing no", "dwg no", "drawing number", "dwg number", "drawing", "dwg"],
+  "title": ["title", "name", "description"],
+  "project": ["project", "project name", "job", "job name"],
+  "scale": ["scale"],
+  "revision": ["revision", "rev", "rev no"],
+  "date": ["date", "drawn date", "issue date"],
+  "drawn": ["drawn by", "drawn", "author"],
+  "checked": ["checked by", "checked", "approved by", "approved"]
+};
+
 // Determine paper size based on dimensions
 export function determinePaperSize(width, height) {
   // Make sure width and height are positive numbers
@@ -135,6 +147,9 @@ export function analyzeTitleBlock(textItems, dimensions) {
         avgY: average(rowItems.map(item => item.y))
       });
     });
+    
+    // Extract field-value pairs from the title block
+    tableStructure.extractedFields = extractFieldsFromTableStructure(tableStructure, bestCellItems);
   }
   
   // Create visualization information
@@ -154,4 +169,139 @@ export function analyzeTitleBlock(textItems, dimensions) {
     titleBlockContent: bestCell.count > 0 ? grid[bestCell.row][bestCell.col].content.join(' ') : 'No title block found',
     tableStructure: bestCell.count > 0 ? tableStructure : null
   };
+}
+
+/**
+ * Extract field-value pairs from the detected table structure
+ * Search strategies:
+ * 1. Look in same cell for label and value
+ * 2. Look anti-clockwise (below → right → above → left) for values
+ * 3. Skip other known labels as candidate values
+ */
+function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
+  const extractedFields = {};
+  const processedCellIds = new Set();
+  
+  // Create a map for quick lookup of items by cell ID
+  const cellMap = {};
+  titleBlockItems.forEach(item => {
+    if (!item.cellId) return;
+    
+    if (!cellMap[item.cellId]) {
+      cellMap[item.cellId] = [];
+    }
+    cellMap[item.cellId].push(item);
+  });
+  
+  // Helper to check if a text is a known label
+  const isKnownLabel = (text) => {
+    const lowerText = text.toLowerCase();
+    return Object.values(fieldLabels).some(variants => 
+      variants.some(variant => lowerText.includes(variant))
+    );
+  };
+  
+  // Find which field category a text belongs to
+  const getFieldType = (text) => {
+    const lowerText = text.toLowerCase();
+    for (const [fieldType, variants] of Object.entries(fieldLabels)) {
+      if (variants.some(variant => lowerText.includes(variant))) {
+        return fieldType;
+      }
+    }
+    return null;
+  };
+  
+  // Parse cell ID to get row and column numbers
+  const parseCellId = (cellId) => {
+    const match = cellId.match(/row_(\d+)_col_(\d+)/);
+    if (match) {
+      return {
+        row: parseInt(match[1]),
+        col: parseInt(match[2])
+      };
+    }
+    return null;
+  };
+  
+  // For each item that looks like a label, find its value
+  titleBlockItems.forEach(item => {
+    if (!item.cellId) return;
+    
+    const itemText = item.str.trim();
+    const fieldType = getFieldType(itemText);
+    
+    // Skip if not a label or already processed
+    if (!fieldType || processedCellIds.has(item.cellId)) return;
+    
+    // Mark this cell as processed
+    processedCellIds.add(item.cellId);
+    
+    // Get cell coordinates
+    const cellCoords = parseCellId(item.cellId);
+    if (!cellCoords) return;
+    
+    // Start with searching in the same cell
+    let valueItem = null;
+    let valueCellId = item.cellId;
+    let distance = 0;
+    
+    // Check if there's a non-label item in the same cell
+    const cellItems = cellMap[item.cellId] || [];
+    const valueItems = cellItems.filter(cellItem => 
+      cellItem !== item && !isKnownLabel(cellItem.str.trim())
+    );
+    
+    if (valueItems.length > 0) {
+      // Use the first non-label item in the same cell
+      valueItem = valueItems[0];
+    } else {
+      // Search anti-clockwise: below → right → above → left
+      const directions = [
+        { row: cellCoords.row + 1, col: cellCoords.col }, // below
+        { row: cellCoords.row, col: cellCoords.col + 1 }, // right
+        { row: cellCoords.row - 1, col: cellCoords.col }, // above
+        { row: cellCoords.row, col: cellCoords.col - 1 }  // left
+      ];
+      
+      for (const dir of directions) {
+        const targetCellId = `row_${dir.row}_col_${dir.col}`;
+        const targetItems = cellMap[targetCellId] || [];
+        
+        // Find first non-label item
+        const candidate = targetItems.find(targetItem => 
+          !isKnownLabel(targetItem.str.trim())
+        );
+        
+        if (candidate) {
+          valueItem = candidate;
+          valueCellId = targetCellId;
+          distance = 1; // Adjacent cell
+          break;
+        }
+      }
+    }
+    
+    // Store the extracted field-value pair
+    if (valueItem) {
+      extractedFields[fieldType] = {
+        label: itemText,
+        value: valueItem.str.trim(),
+        labelCellId: item.cellId,
+        valueCellId: valueCellId,
+        distance: distance
+      };
+    } else {
+      // Store the label without a value
+      extractedFields[fieldType] = {
+        label: itemText,
+        value: "",
+        labelCellId: item.cellId,
+        valueCellId: null,
+        distance: -1
+      };
+    }
+  });
+  
+  return extractedFields;
 }
