@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const dropZone = document.getElementById('drop-zone');
@@ -16,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const textContent = document.getElementById('text-content');
   const extractedText = document.getElementById('extracted-text');
   const loadingOverlay = document.getElementById('loading-overlay');
+  const fileList = document.getElementById('file-list');
+  const multipleFilesToggle = document.getElementById('multiple-files');
   
   // State
   let pdfDoc = null;
@@ -24,6 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let pageNumPending = null;
   let scale = 1.0;
   let canvasContext = pdfCanvas.getContext('2d');
+  
+  // Store extracted text items for each file
+  let extractedTextItems = {};
+  let currentFileId = null;
   
   // Event listeners for drag and drop
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -57,12 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleDrop(e) {
     const dt = e.dataTransfer;
     const files = dt.files;
-    
-    if (files.length > 0 && files[0].type === 'application/pdf') {
-      handleFiles(files);
-    } else {
-      alert('Please select a PDF file.');
-    }
+    handleFiles(files);
   }
   
   // Handle file input change
@@ -77,25 +77,144 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.click();
   });
   
+  // Update multiple files attribute
+  multipleFilesToggle.addEventListener('change', () => {
+    fileInput.multiple = multipleFilesToggle.checked;
+  });
+  
   // Handle file selection
   function handleFiles(files) {
-    const file = files[0];
-    if (file.type !== 'application/pdf') {
-      alert('Please select a PDF file.');
-      return;
+    // Clear previous file list
+    if (files.length > 0) {
+      fileList.innerHTML = '';
+      extractedTextItems = {};
+      
+      // Display file list
+      fileList.classList.remove('hidden');
+      
+      // Process each file
+      Array.from(files).forEach((file, index) => {
+        if (file.type !== 'application/pdf') {
+          createFileListItem(file.name, 'Not a PDF file', null, 'error');
+          return;
+        }
+        
+        const fileId = `file-${Date.now()}-${index}`;
+        createFileListItem(file.name, 'Processing...', fileId);
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const arrayBuffer = e.target.result;
+          processFirstPage(arrayBuffer, fileId, file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      });
+      
+      // Show results container
+      uploadContainer.classList.add('minimized');
+      resultsContainer.classList.remove('hidden');
     }
-    
-    const reader = new FileReader();
-    
-    reader.onload = function(e) {
-      const arrayBuffer = e.target.result;
-      loadPDF(arrayBuffer);
-    };
-    
-    reader.readAsArrayBuffer(file);
   }
   
-  // Load PDF using PDF.js
+  // Create a file list item
+  function createFileListItem(fileName, status, fileId, type = 'normal') {
+    const item = document.createElement('div');
+    item.className = `file-item ${type}`;
+    item.id = fileId ? `item-${fileId}` : null;
+    
+    item.innerHTML = `
+      <div class="file-name">${fileName}</div>
+      <div class="file-status">${status}</div>
+      ${fileId ? `<button class="view-button" data-file-id="${fileId}">View Details</button>` : ''}
+    `;
+    
+    fileList.appendChild(item);
+    
+    // Add event listener to view button
+    if (fileId) {
+      const viewButton = item.querySelector('.view-button');
+      viewButton.addEventListener('click', () => displayFileDetails(fileId));
+    }
+  }
+  
+  // Process the first page of a PDF
+  function processFirstPage(data, fileId, fileName) {
+    // Load PDF document
+    pdfjsLib.getDocument({ data }).promise
+      .then(function(pdf) {
+        // Get the first page
+        return pdf.getPage(1);
+      })
+      .then(function(page) {
+        // Extract text content with properties
+        return page.getTextContent({ normalizeWhitespace: false });
+      })
+      .then(function(textContent) {
+        // Process text items
+        const textItems = textContent.items.map(item => {
+          const style = textContent.styles[item.fontName];
+          
+          return {
+            str: item.str,
+            x: item.transform[4], // x position
+            y: item.transform[5], // y position
+            fontSize: item.fontSize || (style ? style.fontSize : null),
+            fontName: item.fontName,
+            color: item.color || (style ? style.color : null)
+          };
+        });
+        
+        // Store extracted items
+        extractedTextItems[fileId] = {
+          fileName: fileName,
+          items: textItems
+        };
+        
+        // Update file list item
+        updateFileListItem(fileId, `${textItems.length} text elements extracted`);
+      })
+      .catch(function(error) {
+        console.error('Error processing PDF:', error);
+        updateFileListItem(fileId, `Error: ${error.message}`, 'error');
+      });
+  }
+  
+  // Update file list item
+  function updateFileListItem(fileId, status, type = 'normal') {
+    const item = document.getElementById(`item-${fileId}`);
+    if (item) {
+      item.className = `file-item ${type}`;
+      const statusElement = item.querySelector('.file-status');
+      if (statusElement) {
+        statusElement.textContent = status;
+      }
+    }
+  }
+  
+  // Display file details
+  function displayFileDetails(fileId) {
+    currentFileId = fileId;
+    
+    if (extractedTextItems[fileId]) {
+      const fileData = extractedTextItems[fileId];
+      
+      // Display text content
+      textContent.classList.remove('hidden');
+      
+      // Format the extracted text for display
+      const formattedText = fileData.items.map(item => {
+        return `Text: "${item.str}"\n` + 
+               `Position: (${item.x.toFixed(2)}, ${item.y.toFixed(2)})\n` +
+               `Font: ${item.fontName || 'Unknown'}, Size: ${item.fontSize || 'Unknown'}\n` +
+               `Color: ${item.color ? JSON.stringify(item.color) : 'Unknown'}\n` +
+               `------------------------`;
+      }).join('\n');
+      
+      extractedText.textContent = formattedText;
+    }
+  }
+  
+  // Load PDF using PDF.js for display
   function loadPDF(data) {
     showLoadingOverlay();
     
@@ -104,10 +223,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(function(pdf) {
         pdfDoc = pdf;
         totalPagesElement.textContent = pdf.numPages;
-        
-        // Show results container and hide upload container
-        uploadContainer.classList.add('hidden');
-        resultsContainer.classList.remove('hidden');
         
         // Update page navigation buttons
         updatePageButtons();
@@ -235,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
   backButton.addEventListener('click', () => {
     pdfDoc = null;
     currentPage = 1;
-    uploadContainer.classList.remove('hidden');
+    uploadContainer.classList.remove('minimized');
     resultsContainer.classList.add('hidden');
     textContent.classList.add('hidden');
     fileInput.value = '';

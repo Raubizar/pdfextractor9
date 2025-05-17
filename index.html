@@ -24,6 +24,12 @@
       
       <main>
         <div class="upload-container" id="upload-container">
+          <div class="upload-options">
+            <label class="toggle-container">
+              <input type="checkbox" id="multiple-files">
+              <span class="toggle-label">Allow multiple files</span>
+            </label>
+          </div>
           <div class="drop-zone" id="drop-zone">
             <div class="icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -41,16 +47,10 @@
         <div class="results-container hidden" id="results-container">
           <div class="toolbar">
             <button id="back-button" class="button secondary">Back</button>
-            <div class="page-controls">
-              <button id="prev-page" class="button icon-button" disabled>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </button>
-              <span id="page-info">Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
-              <button id="next-page" class="button icon-button">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </button>
-            </div>
-            <button id="extract-text-button" class="button primary">Extract Text</button>
+          </div>
+          
+          <div class="file-list hidden" id="file-list">
+            <!-- File list items will be inserted here dynamically -->
           </div>
           
           <div class="viewer-container">
@@ -63,7 +63,7 @@
             </div>
             
             <div class="text-content hidden" id="text-content">
-              <h2>Extracted Text</h2>
+              <h2>Extracted Text Elements</h2>
               <div class="text-wrapper">
                 <pre id="extracted-text"></pre>
               </div>
