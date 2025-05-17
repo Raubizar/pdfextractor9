@@ -1,41 +1,36 @@
 
 /**
- * PDF viewer controls and interactions
+ * PDF viewer handler functionality
  */
 
 import { renderPage, queueRenderPage, updatePageButtons } from '../pdf/pdf-viewer.js';
-import { showLoadingOverlay, hideLoadingOverlay } from './page-navigation.js';
+import { showLoadingOverlay, hideLoadingOverlay } from '../ui/page-navigation.js';
 import { extractTextFromPage } from '../pdf/pdf-loader.js';
-import { displayFileDetails } from './file-list.js';
 
-// Initialize PDF viewer controls
+// Initialize PDF viewer functionality
 export function initializePDFViewer(elements, state) {
   const { 
     prevPageButton, 
     nextPageButton, 
-    backButton,
     extractTextButton,
     textContent,
     extractedText,
-    uploadContainer,
-    resultsContainer,
     loadingOverlay,
-    fileInput,
-    pdfCanvas
+    currentPageElement
   } = elements;
   
   // Go to previous page
   prevPageButton.addEventListener('click', () => {
     if (state.currentPage <= 1) return;
     state.currentPage--;
-    queueRenderCurrentPage(state);
+    queueRenderCurrentPage(state, elements);
   });
   
   // Go to next page
   nextPageButton.addEventListener('click', () => {
     if (state.currentPage >= state.pdfDoc?.numPages) return;
     state.currentPage++;
-    queueRenderCurrentPage(state);
+    queueRenderCurrentPage(state, elements);
   });
   
   // Extract text from PDF
@@ -57,45 +52,34 @@ export function initializePDFViewer(elements, state) {
     }
   });
   
-  // Handle back button
-  backButton.addEventListener('click', () => {
-    state.pdfDoc = null;
-    state.currentPage = 1;
-    uploadContainer.classList.remove('minimized');
-    resultsContainer.classList.add('hidden');
-    textContent.classList.add('hidden');
-    fileInput.value = '';
-  });
-  
   // Handle window resize
   window.addEventListener('resize', () => {
     if (state.pdfDoc) {
-      renderCurrentPage(state);
+      renderCurrentPage(state, elements);
     }
   });
-  
-  // Return the render functions for use in other modules
-  return {
-    renderCurrentPage: (state) => renderCurrentPage(state),
-    queueRenderCurrentPage: (state) => queueRenderCurrentPage(state)
-  };
 }
 
 // Render current page with state management
-export function renderCurrentPage(state) {
+export function renderCurrentPage(state, elements) {
   const {
     pdfDoc,
     currentPage,
+    pageRendering,
+    scale
+  } = state;
+  
+  const {
     canvasContext,
     pdfCanvas,
     pdfLoading,
     currentPageElement,
     prevPageButton,
     nextPageButton
-  } = state;
+  } = elements;
   
   renderPage(currentPage, 
-    { pageRendering: state.pageRendering, scale: state.scale }, 
+    { pageRendering, scale }, 
     { pdfDoc, canvasContext, pdfCanvas, pdfLoading }
   )
   .then(updatedState => {
@@ -104,7 +88,7 @@ export function renderCurrentPage(state) {
     
     // Check if there's a pending page
     if (state.pageNumPending !== null) {
-      renderCurrentPage(state);
+      renderCurrentPage(state, elements);
       state.pageNumPending = null;
     }
     
@@ -117,25 +101,12 @@ export function renderCurrentPage(state) {
 }
 
 // Queue render with state management
-export function queueRenderCurrentPage(state) {
+export function queueRenderCurrentPage(state, elements) {
   const result = queueRenderPage(
     state.currentPage, 
     { pageRendering: state.pageRendering, pageNumPending: state.pageNumPending }, 
-    (pageNum) => renderCurrentPage({...state, currentPage: pageNum})
+    (pageNum) => renderCurrentPage({...state, currentPage: pageNum}, elements)
   );
   
   state.pageNumPending = result.pageNumPending;
-}
-
-// Set up file list view button handlers
-export function setupFileViewButtons(fileList, extractedTextItems, textContent, extractedText) {
-  // Delegate event listener for file view buttons
-  fileList.addEventListener('click', (e) => {
-    if (e.target.classList.contains('view-button')) {
-      const fileId = e.target.dataset.fileId;
-      if (fileId) {
-        displayFileDetails(fileId, extractedTextItems, textContent, extractedText);
-      }
-    }
-  });
 }
