@@ -98,6 +98,19 @@ export function detectMergedCells(cells) {
       });
     }
   });
+
+  // Add spatial information to merged cells
+  enhancedCells.forEach(cell => {
+    // Update spatial information for merged cells
+    if (cell.rowSpan > 1 || cell.colSpan > 1) {
+      // Calculate the center of the merged cell
+      cell.spatial = {
+        centerX: cell.x + cell.width / 2,
+        centerY: cell.y + cell.height / 2,
+        area: cell.width * cell.height
+      };
+    }
+  });
   
   return enhancedCells;
 }
@@ -127,8 +140,137 @@ export function updateAdjacencyWithMergedCells(cells, adjacencyMap) {
           }
         });
       });
+      
+      // Remove the merged cell from the adjacency map
+      delete updatedMap[cell.id];
+    }
+  });
+
+  // Update adjacencies based on spatial positioning for merged cells
+  cells.forEach(cell => {
+    // Only process cells that have spans > 1 (merged cells)
+    if ((cell.rowSpan > 1 || cell.colSpan > 1) && !cell.isMerged) {
+      // We may need to update adjacent cells based on the expanded area
+      const cellsRelatedToMerged = findCellsRelatedToMerged(cell, cells);
+      
+      // Update adjacencies
+      cellsRelatedToMerged.forEach(relatedCell => {
+        const direction = relatedCell.direction;
+        
+        // Update the relevant direction in the adjacency map
+        if (updatedMap[cell.id] && !updatedMap[cell.id][direction]) {
+          updatedMap[cell.id][direction] = relatedCell.cell.id;
+        }
+        
+        // Update the opposite direction
+        const oppositeDirection = getOppositeDirection(direction);
+        if (updatedMap[relatedCell.cell.id] && !updatedMap[relatedCell.cell.id][oppositeDirection]) {
+          updatedMap[relatedCell.cell.id][oppositeDirection] = cell.id;
+        }
+      });
     }
   });
   
   return updatedMap;
+}
+
+/**
+ * Find cells related to a merged cell by spatial position
+ * @param {Object} mergedCell The merged cell
+ * @param {Array} allCells All cells in the grid
+ * @returns {Array} Cells related to the merged cell with direction information
+ */
+function findCellsRelatedToMerged(mergedCell, allCells) {
+  const relatedCells = [];
+  
+  // Calculate the merged cell's boundaries
+  const mergedBounds = {
+    left: mergedCell.x,
+    right: mergedCell.x + mergedCell.width,
+    top: mergedCell.y,
+    bottom: mergedCell.y + mergedCell.height
+  };
+  
+  // Check each cell for spatial relationships
+  allCells.forEach(cell => {
+    // Skip the merged cell itself and any merged cells
+    if (cell.id === mergedCell.id || cell.isMerged) return;
+    
+    const cellBounds = {
+      left: cell.x,
+      right: cell.x + cell.width,
+      top: cell.y,
+      bottom: cell.y + cell.height
+    };
+    
+    // Check if the cell is to the right of the merged cell
+    if (Math.abs(cellBounds.left - mergedBounds.right) < 5 &&
+        !(cellBounds.top > mergedBounds.bottom || cellBounds.bottom < mergedBounds.top)) {
+      relatedCells.push({
+        cell,
+        direction: 'right',
+        distance: cellBounds.left - mergedBounds.right
+      });
+    }
+    
+    // Check if the cell is to the left of the merged cell
+    if (Math.abs(cellBounds.right - mergedBounds.left) < 5 &&
+        !(cellBounds.top > mergedBounds.bottom || cellBounds.bottom < mergedBounds.top)) {
+      relatedCells.push({
+        cell,
+        direction: 'left',
+        distance: mergedBounds.left - cellBounds.right
+      });
+    }
+    
+    // Check if the cell is below the merged cell
+    if (Math.abs(cellBounds.top - mergedBounds.bottom) < 5 &&
+        !(cellBounds.left > mergedBounds.right || cellBounds.right < mergedBounds.left)) {
+      relatedCells.push({
+        cell,
+        direction: 'bottom',
+        distance: cellBounds.top - mergedBounds.bottom
+      });
+    }
+    
+    // Check if the cell is above the merged cell
+    if (Math.abs(cellBounds.bottom - mergedBounds.top) < 5 &&
+        !(cellBounds.left > mergedBounds.right || cellBounds.right < mergedBounds.left)) {
+      relatedCells.push({
+        cell,
+        direction: 'top',
+        distance: mergedBounds.top - cellBounds.bottom
+      });
+    }
+  });
+  
+  // Sort related cells by distance in each direction
+  const result = [];
+  
+  ['right', 'left', 'bottom', 'top'].forEach(direction => {
+    const directionCells = relatedCells
+      .filter(item => item.direction === direction)
+      .sort((a, b) => Math.abs(a.distance) - Math.abs(b.distance));
+    
+    if (directionCells.length > 0) {
+      result.push(directionCells[0]); // Add the closest cell in this direction
+    }
+  });
+  
+  return result;
+}
+
+/**
+ * Get the opposite direction
+ * @param {string} direction Direction ('right', 'left', 'top', 'bottom')
+ * @returns {string} Opposite direction
+ */
+function getOppositeDirection(direction) {
+  switch (direction) {
+    case 'right': return 'left';
+    case 'left': return 'right';
+    case 'top': return 'bottom';
+    case 'bottom': return 'top';
+    default: return null;
+  }
 }

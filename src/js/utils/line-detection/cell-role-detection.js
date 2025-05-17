@@ -197,6 +197,28 @@ export function analyzeInCellFieldValue(cellItems) {
         };
       }
     }
+    
+    // New: Check for multi-line field-value pairs
+    if (i < sortedItems.length - 1) {
+      const nextItem = sortedItems[i + 1];
+      
+      // If current item is a known label and next item is directly below
+      const isLabel = /^(client|project|drawing|scale|date|revision|sheet)[\s:].*$/i.test(text);
+      const isDirectlyBelow = Math.abs(nextItem.x - item.x) < 10 &&
+                            (nextItem.y > item.y) &&
+                            (nextItem.y - item.y < item.fontSize * 3);
+                             
+      if (isLabel && isDirectlyBelow) {
+        return {
+          label: text,
+          value: nextItem.str.trim(),
+          labelItem: item,
+          valueItem: nextItem,
+          confidence: 0.8,
+          pattern: 'stacked-label-value'
+        };
+      }
+    }
   }
   
   return null;

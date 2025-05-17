@@ -54,9 +54,15 @@ export function detectTableCells(horizontalLines, verticalLines, rectangles) {
           right: rightLine,
           bottom: bottomLine,
           left: leftLine,
-          // Store row and column for adjacency calculations
+          // Store row and column for backwards compatibility, but not primary usage
           row: i,
-          col: j
+          col: j,
+          // Add spatial info for better adjacency calculation
+          spatial: {
+            centerX: leftLine.x + (rightLine.x - leftLine.x) / 2,
+            centerY: topLine.y + (bottomLine.y - topLine.y) / 2,
+            area: (rightLine.x - leftLine.x) * (bottomLine.y - topLine.y)
+          }
         });
       }
     }
@@ -108,40 +114,84 @@ export function getCellAdjacencyMap(cells) {
     };
   });
   
-  // Find adjacent cells based on row/column indices
+  // Enhanced adjacency detection with spatial positioning
   cells.forEach(cell1 => {
     // Skip merged cells that are not the main one
     if (cell1.isMerged && cell1.mergedWithCellId) return;
+    
+    // Calculate distances to all other cells
+    const distances = [];
     
     cells.forEach(cell2 => {
       // Skip same cell and merged cells that are not the main one
       if (cell1.id === cell2.id || (cell2.isMerged && cell2.mergedWithCellId)) return;
       
-      // Account for cell spans when determining adjacency
-      const cell1RightEdge = cell1.col + (cell1.colSpan || 1);
-      const cell1BottomEdge = cell1.row + (cell1.rowSpan || 1);
+      // Calculate horizontal and vertical distances between cell centers
+      const horizontalDistance = cell2.spatial?.centerX - cell1.spatial?.centerX;
+      const verticalDistance = cell2.spatial?.centerY - cell1.spatial?.centerY;
       
-      // Check if cell2 is to the right of cell1
-      if (cell1.row === cell2.row && cell2.col === cell1RightEdge) {
-        adjacencyMap[cell1.id].right = cell2.id;
-      }
+      // Calculate absolute distances
+      const absHorizontal = Math.abs(horizontalDistance);
+      const absVertical = Math.abs(verticalDistance);
       
-      // Check if cell2 is to the left of cell1
-      if (cell1.row === cell2.row && cell2.col + (cell2.colSpan || 1) === cell1.col) {
-        adjacencyMap[cell1.id].left = cell2.id;
-      }
+      // Store distance information
+      distances.push({
+        cell: cell2,
+        horizontalDistance,
+        verticalDistance,
+        absHorizontal,
+        absVertical,
+        direction: determineDirection(horizontalDistance, verticalDistance)
+      });
+    });
+    
+    // Find nearest cell in each direction
+    ['right', 'left', 'top', 'bottom'].forEach(direction => {
+      const candidates = distances.filter(d => d.direction === direction);
       
-      // Check if cell2 is below cell1
-      if (cell1.col === cell2.col && cell2.row === cell1BottomEdge) {
-        adjacencyMap[cell1.id].bottom = cell2.id;
-      }
-      
-      // Check if cell2 is above cell1
-      if (cell1.col === cell2.col && cell2.row + (cell2.rowSpan || 1) === cell1.row) {
-        adjacencyMap[cell1.id].top = cell2.id;
+      if (candidates.length > 0) {
+        // Sort by distance in relevant dimension
+        const isHorizontal = direction === 'right' || direction === 'left';
+        const sortedCandidates = candidates.sort((a, b) => {
+          // Primary sort by relevance distance
+          const distA = isHorizontal ? a.absHorizontal : a.absVertical;
+          const distB = isHorizontal ? b.absHorizontal : b.absVertical;
+          
+          // Secondary sort by orthogonal distance
+          if (Math.abs(distA - distB) < 5) { // If primary distances are similar
+            const orthogonalA = isHorizontal ? a.absVertical : a.absHorizontal;
+            const orthogonalB = isHorizontal ? b.absVertical : b.absHorizontal;
+            return orthogonalA - orthogonalB;
+          }
+          
+          return distA - distB;
+        });
+        
+        // Use the best candidate
+        adjacencyMap[cell1.id][direction] = sortedCandidates[0].cell.id;
       }
     });
   });
   
   return adjacencyMap;
+}
+
+/**
+ * Determine the main direction between two points
+ * @param {number} horizontalDistance Horizontal distance
+ * @param {number} verticalDistance Vertical distance 
+ * @returns {string} Direction ('right', 'left', 'top', or 'bottom')
+ */
+function determineDirection(horizontalDistance, verticalDistance) {
+  const absHorizontal = Math.abs(horizontalDistance);
+  const absVertical = Math.abs(verticalDistance);
+  
+  // Determine if movement is primarily horizontal or vertical
+  if (absHorizontal > absVertical) {
+    // Primarily horizontal movement
+    return horizontalDistance > 0 ? 'right' : 'left';
+  } else {
+    // Primarily vertical movement
+    return verticalDistance > 0 ? 'bottom' : 'top';
+  }
 }

@@ -40,7 +40,11 @@ export function assignTextItemsToCells(textItems, cells, textStats = {}) {
           width: cell.width,
           height: cell.height,
           rowSpan: cell.rowSpan || 1,
-          colSpan: cell.colSpan || 1
+          colSpan: cell.colSpan || 1,
+          spatial: cell.spatial || {
+            centerX: cell.x + cell.width / 2,
+            centerY: cell.y + cell.height / 2
+          }
         };
         
         // Add item to cell content map
@@ -71,6 +75,7 @@ export function assignTextItemsToCells(textItems, cells, textStats = {}) {
     cellItems.forEach(item => {
       item.cellRole = roleInfo.role;
       item.cellRoleConfidence = roleInfo.confidence;
+      item.cellRoleScores = roleInfo.scores;
       
       // Add field-value info if found
       if (fieldValueInfo) {
