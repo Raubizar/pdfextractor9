@@ -96,8 +96,14 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
         extractedFieldsInfo = `\nExtracted Field-Value Pairs:\n`;
         
         Object.entries(fields).forEach(([fieldType, fieldData]) => {
+          // Format confidence as percentage
+          const confidencePercent = Math.round(fieldData.confidence * 100);
+          const confidenceColor = fieldData.confidence >= 0.8 ? 'green' : 
+                                 fieldData.confidence >= 0.5 ? 'orange' : 'red';
+          
           extractedFieldsInfo += `  - ${fieldType.toUpperCase()}: ${fieldData.label} → "${fieldData.value}"\n`;
           extractedFieldsInfo += `    (Label Cell: ${fieldData.labelCellId}, Value Cell: ${fieldData.valueCellId || 'N/A'}, Distance: ${fieldData.distance})\n`;
+          extractedFieldsInfo += `    Confidence: ${confidencePercent}% - ${fieldData.validationDetails?.reason || 'Not validated'}\n`;
         });
       }
     }

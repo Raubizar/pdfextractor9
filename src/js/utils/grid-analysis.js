@@ -31,6 +31,26 @@ export const fieldLabels = {
   "checked": ["checked by", "checked", "approved by", "approved"]
 };
 
+// Field validation patterns
+export const fieldPatterns = {
+  "drawing": {
+    pattern: /^[A-Z0-9\-_]{2,20}$/,
+    fallbackPatterns: [/[A-Z0-9]{2,}/i]
+  },
+  "scale": {
+    pattern: /^\d+[:/@]\d+$/i,
+    validValues: ["N/A", "AS INDICATED", "NTS", "NONE", "FULL", "HALF"]
+  },
+  "revision": {
+    pattern: /^P\d+$/,
+    fallbackPatterns: [/^[A-Z]?\d{1,2}$/, /^REV\s*[A-Z0-9]$/i]
+  },
+  "date": {
+    pattern: /\d{2,4}[-/]\d{1,2}[-/]\d{2,4}/,
+    fallbackPatterns: [/\d{1,2}[-/\.\s][A-Za-z]{3,9}[-/\.\s]\d{2,4}/]
+  }
+};
+
 // Determine paper size based on dimensions
 export function determinePaperSize(width, height) {
   // Make sure width and height are positive numbers
@@ -172,6 +192,81 @@ export function analyzeTitleBlock(textItems, dimensions) {
 }
 
 /**
+ * Validate a field value against expected patterns
+ * @param {string} fieldType Type of field (drawing, scale, revision, date)
+ * @param {string} value The value to validate
+ * @returns {object} Validation result with confidence score and validation details
+ */
+function validateFieldValue(fieldType, value) {
+  if (!value || value.trim() === '') {
+    return {
+      valid: false,
+      confidence: 0,
+      reason: 'Empty value'
+    };
+  }
+
+  const patterns = fieldPatterns[fieldType];
+  if (!patterns) {
+    return {
+      valid: true,
+      confidence: 0.5, // Default confidence for fields without patterns
+      reason: 'No validation pattern defined'
+    };
+  }
+
+  // Check primary pattern
+  if (patterns.pattern && patterns.pattern.test(value)) {
+    return {
+      valid: true,
+      confidence: 1,
+      reason: 'Matches primary pattern'
+    };
+  }
+
+  // Check valid values list
+  if (patterns.validValues && patterns.validValues.some(validValue => 
+    value.toUpperCase() === validValue.toUpperCase())) {
+    return {
+      valid: true,
+      confidence: 1,
+      reason: 'Matches valid value'
+    };
+  }
+
+  // Check fallback patterns
+  if (patterns.fallbackPatterns) {
+    for (const fallbackPattern of patterns.fallbackPatterns) {
+      if (fallbackPattern.test(value)) {
+        return {
+          valid: true,
+          confidence: 0.7,
+          reason: 'Matches fallback pattern'
+        };
+      }
+    }
+  }
+
+  // Special case for dates - check if it might be a date
+  if (fieldType === 'date') {
+    const potentialDate = new Date(value);
+    if (!isNaN(potentialDate.getTime())) {
+      return {
+        valid: true,
+        confidence: 0.6,
+        reason: 'Parseable as date'
+      };
+    }
+  }
+
+  return {
+    valid: false,
+    confidence: 0,
+    reason: 'Does not match any expected pattern'
+  };
+}
+
+/**
  * Extract field-value pairs from the detected table structure
  * Search strategies:
  * 1. Look in same cell for label and value
@@ -282,14 +377,19 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
       }
     }
     
-    // Store the extracted field-value pair
+    // Store the extracted field-value pair with validation
     if (valueItem) {
+      const valueText = valueItem.str.trim();
+      const validation = validateFieldValue(fieldType, valueText);
+      
       extractedFields[fieldType] = {
         label: itemText,
-        value: valueItem.str.trim(),
+        value: valueText,
         labelCellId: item.cellId,
         valueCellId: valueCellId,
-        distance: distance
+        distance: distance,
+        confidence: validation.confidence,
+        validationDetails: validation
       };
     } else {
       // Store the label without a value
@@ -298,10 +398,17 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
         value: "",
         labelCellId: item.cellId,
         valueCellId: null,
-        distance: -1
+        distance: -1,
+        confidence: 0,
+        validationDetails: {
+          valid: false,
+          confidence: 0,
+          reason: 'No value found'
+        }
       };
     }
   });
   
   return extractedFields;
 }
+
