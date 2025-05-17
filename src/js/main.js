@@ -5,7 +5,7 @@
 
 import { setupDragAndDrop } from './ui/drag-drop.js';
 import { handleFiles } from './utils/file-handling.js';
-import { createFileListItem, updateFileListItem, displayFileDetails } from './ui/file-list.js';
+import { createFileListItem, updateFileListItem, displayFileDetails, createSummaryButton } from './ui/file-list.js';
 import { processFirstPage, loadPDFForViewing, extractTextFromPage } from './pdf/pdf-loader.js';
 import { renderPage, queueRenderPage, updatePageButtons } from './pdf/pdf-viewer.js';
 import { showLoadingOverlay, hideLoadingOverlay, updatePageDisplay } from './ui/page-navigation.js';
@@ -78,6 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(extractedData => {
           extractedTextItems[fileId] = extractedData;
+          
+          // Add or update summary button when we have files
+          if (Object.keys(extractedTextItems).length > 0) {
+            updateSummaryButton();
+          }
         })
         .catch(error => {
           console.error('Error in processing PDF:', error);
@@ -90,6 +95,22 @@ document.addEventListener('DOMContentLoaded', () => {
       uploadContainer.classList.add('minimized');
       resultsContainer.classList.remove('hidden');
     }
+  }
+  
+  // Function to add or update summary button
+  function updateSummaryButton() {
+    // Remove any existing summary button
+    const existingButton = document.querySelector('.summary-button-container');
+    if (existingButton) {
+      existingButton.remove();
+    }
+    
+    // Create new summary button
+    const summaryButton = createSummaryButton(extractedTextItems, resultsContainer);
+    
+    // Insert before toolbar
+    const toolbar = document.querySelector('.toolbar');
+    resultsContainer.insertBefore(summaryButton, toolbar);
   }
   
   // Setup drag and drop functionality

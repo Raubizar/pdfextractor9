@@ -3,6 +3,8 @@
  * File list UI functionality
  */
 
+import { createSummaryTable } from './summary-table.js';
+
 // Create a file list item
 export function createFileListItem(fileName, status, fileId, type = 'normal') {
   const item = document.createElement('div');
@@ -37,6 +39,37 @@ function formatConfidence(confidence) {
                           confidence >= 0.5 ? 'medium-confidence' : 'low-confidence';
   
   return `<span class="${confidenceClass}">${confidencePercent}%</span>`;
+}
+
+// Create a button to show the summary table
+export function createSummaryButton(extractedTextItems, containerElement) {
+  const summaryButtonContainer = document.createElement('div');
+  summaryButtonContainer.className = 'summary-button-container';
+  
+  const summaryButton = document.createElement('button');
+  summaryButton.className = 'button primary summary-button';
+  summaryButton.textContent = 'Show Summary Table';
+  summaryButton.addEventListener('click', () => {
+    // Toggle summary view
+    const existingSummary = document.getElementById('summary-view');
+    if (existingSummary) {
+      existingSummary.remove();
+      summaryButton.textContent = 'Show Summary Table';
+    } else {
+      const summaryView = document.createElement('div');
+      summaryView.id = 'summary-view';
+      summaryView.className = 'summary-view';
+      
+      const summaryTable = createSummaryTable(extractedTextItems);
+      summaryView.appendChild(summaryTable);
+      
+      containerElement.appendChild(summaryView);
+      summaryButton.textContent = 'Hide Summary Table';
+    }
+  });
+  
+  summaryButtonContainer.appendChild(summaryButton);
+  return summaryButtonContainer;
 }
 
 // Display file details
