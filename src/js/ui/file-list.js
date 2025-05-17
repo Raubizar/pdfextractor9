@@ -39,19 +39,51 @@ function formatConfidence(confidence) {
   return `<span class="${confidenceClass}">${confidencePercent}%</span>`;
 }
 
-// Format extracted fields information
-function formatExtractedFields(fields) {
-  if (!fields) return '';
+// Display file details
+export function displayFileDetails(fileId, extractedTextItems, textContentElement, extractedTextElement) {
+  if (extractedTextItems[fileId]) {
+    const fileData = extractedTextItems[fileId];
+    
+    // Display text content
+    textContentElement.classList.remove('hidden');
+    
+    // Format content by combining different sections
+    extractedTextElement.textContent = formatAllFileDetails(fileData);
+  }
+}
+
+// Format all file details for display
+function formatAllFileDetails(fileData) {
+  // Format the content sections individually
+  const headerInfo = formatHeaderInfo(fileData);
+  const tableInfo = formatTableStructure(fileData.titleBlock.tableStructure);
+  const cellIdInfo = formatCellIdInformation(fileData.titleBlock);
+  const extractedFieldsInfo = formatExtractedFields(fileData.titleBlock.tableStructure?.extractedFields);
+  const contentInfo = `\n------------------------\n\nText Elements:\n\n`;
+  const formattedText = formatTextItems(fileData.items);
   
-  let extractedFieldsInfo = `\nExtracted Field-Value Pairs:\n`;
+  // Combine all the formatted sections
+  return headerInfo + 
+         tableInfo + 
+         cellIdInfo + 
+         extractedFieldsInfo + 
+         contentInfo + 
+         formattedText;
+}
+
+// Format header information
+function formatHeaderInfo(fileData) {
+  const { dimensions, titleBlock } = fileData;
+  const { paperSize, orientation, width, height } = dimensions;
   
-  Object.entries(fields).forEach(([fieldType, fieldData]) => {
-    extractedFieldsInfo += `  - ${fieldType.toUpperCase()}: ${fieldData.label} → "${fieldData.value}"\n`;
-    extractedFieldsInfo += `    (Label Cell: ${fieldData.labelCellId}, Value Cell: ${fieldData.valueCellId || 'N/A'}, Distance: ${fieldData.distance})\n`;
-    extractedFieldsInfo += `    Confidence: ${fieldData.confidence * 100}% - ${fieldData.validationDetails?.reason || 'Not validated'}\n`;
-  });
-  
-  return extractedFieldsInfo;
+  return `File: ${fileData.fileName}\n` +
+         `Paper Size: ${paperSize}\n` +
+         `Orientation: ${orientation}\n` +
+         `Dimensions: ${Math.round(width)}x${Math.round(height)} points\n` +
+         `Group Key: ${dimensions.sizeOrientation}\n\n` +
+         `Title Block Analysis:\n` +
+         `  Best Candidate: Row ${titleBlock.bestCell.row + 1}, Column ${titleBlock.bestCell.col + 1}\n` +
+         `  Keyword Count: ${titleBlock.bestCell.count}\n`;
 }
 
 // Format table structure information
@@ -98,6 +130,21 @@ function formatCellIdInformation(titleBlock) {
   return cellIdInfo;
 }
 
+// Format extracted fields information
+function formatExtractedFields(fields) {
+  if (!fields) return '';
+  
+  let extractedFieldsInfo = `\nExtracted Field-Value Pairs:\n`;
+  
+  Object.entries(fields).forEach(([fieldType, fieldData]) => {
+    extractedFieldsInfo += `  - ${fieldType.toUpperCase()}: ${fieldData.label} → "${fieldData.value}"\n`;
+    extractedFieldsInfo += `    (Label Cell: ${fieldData.labelCellId}, Value Cell: ${fieldData.valueCellId || 'N/A'}, Distance: ${fieldData.distance})\n`;
+    extractedFieldsInfo += `    Confidence: ${fieldData.confidence * 100}% - ${fieldData.validationDetails?.reason || 'Not validated'}\n`;
+  });
+  
+  return extractedFieldsInfo;
+}
+
 // Format text items
 function formatTextItems(items) {
   return items.map(item => {
@@ -108,45 +155,4 @@ function formatTextItems(items) {
            `Color: ${item.color ? JSON.stringify(item.color) : 'Unknown'}\n` +
            `------------------------`;
   }).join('\n');
-}
-
-// Format header information
-function formatHeaderInfo(fileData) {
-  const { dimensions, titleBlock } = fileData;
-  const { paperSize, orientation, width, height } = dimensions;
-  
-  return `File: ${fileData.fileName}\n` +
-         `Paper Size: ${paperSize}\n` +
-         `Orientation: ${orientation}\n` +
-         `Dimensions: ${Math.round(width)}x${Math.round(height)} points\n` +
-         `Group Key: ${dimensions.sizeOrientation}\n\n` +
-         `Title Block Analysis:\n` +
-         `  Best Candidate: Row ${titleBlock.bestCell.row + 1}, Column ${titleBlock.bestCell.col + 1}\n` +
-         `  Keyword Count: ${titleBlock.bestCell.count}\n`;
-}
-
-// Display file details
-export function displayFileDetails(fileId, extractedTextItems, textContentElement, extractedTextElement) {
-  if (extractedTextItems[fileId]) {
-    const fileData = extractedTextItems[fileId];
-    
-    // Display text content
-    textContentElement.classList.remove('hidden');
-    
-    // Format the content sections individually
-    const headerInfo = formatHeaderInfo(fileData);
-    const tableInfo = formatTableStructure(fileData.titleBlock.tableStructure);
-    const cellIdInfo = formatCellIdInformation(fileData.titleBlock);
-    const extractedFieldsInfo = formatExtractedFields(fileData.titleBlock.tableStructure?.extractedFields);
-    const contentInfo = `\n------------------------\n\nText Elements:\n\n`;
-    const formattedText = formatTextItems(fileData.items);
-    
-    // Combine all the formatted sections
-    extractedTextElement.textContent = headerInfo + 
-                                       tableInfo + 
-                                       cellIdInfo + 
-                                       extractedFieldsInfo + 
-                                       contentInfo + 
-                                       formattedText;
-  }
 }
