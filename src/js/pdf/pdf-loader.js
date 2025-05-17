@@ -1,4 +1,3 @@
-
 /**
  * PDF loading functionality
  */
@@ -33,8 +32,8 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
         const orientation = determineOrientation(finalWidth, finalHeight);
         const sizeOrientation = `${paperSize}_${orientation}`;
         
-        // Extract text content with properties
-        return page.getTextContent({ normalizeWhitespace: false }).then(textContent => {
+        // Extract text content with properties and marked content
+        return page.getTextContent({ normalizeWhitespace: false, includeMarkedContent: true }).then(textContent => {
           return {
             page,
             pdf,
@@ -51,22 +50,61 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
       });
     })
     .then(function(result) {
-      // Process text items
+      // Process text items with enhanced metadata
       const textItems = result.textContent.items.map(item => {
         const style = result.textContent.styles[item.fontName];
+        
+        // Calculate width and height of text item
+        const width = item.width || (item.transform ? item.transform[0] : 0);
+        const height = style ? style.ascent - style.descent : 0;
         
         return {
           str: item.str,
           x: item.transform[4], // x position
           y: item.transform[5], // y position
+          width: width,
+          height: height,
           fontSize: item.fontSize || (style ? style.fontSize : null),
           fontName: item.fontName,
-          color: item.color || (style ? style.color : null)
+          fillColor: item.color || (style ? style.color : null)
         };
       });
       
-      // Analyze the page for title block
-      const titleBlockAnalysis = analyzeTitleBlock(textItems, result.dimensions);
+      // Calculate median font size for relative comparisons
+      const allFontSizes = textItems
+        .map(item => item.fontSize)
+        .filter(size => size != null);
+      const medianFontSize = calculateMedian(allFontSizes);
+      
+      // Count occurrences of each color to determine body text color
+      const colorCounts = {};
+      textItems.forEach(item => {
+        const colorKey = item.fillColor ? JSON.stringify(item.fillColor) : 'null';
+        colorCounts[colorKey] = (colorCounts[colorKey] || 0) + 1;
+      });
+      
+      // Find the most common color (likely the body text color)
+      let bodyTextColorKey = 'null';
+      let maxCount = 0;
+      
+      Object.entries(colorCounts).forEach(([colorKey, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          bodyTextColorKey = colorKey;
+        }
+      });
+      
+      const bodyTextColor = bodyTextColorKey !== 'null' ? JSON.parse(bodyTextColorKey) : null;
+      
+      // Analyze the page for title block with weighted scoring
+      const titleBlockAnalysis = analyzeTitleBlock(
+        textItems, 
+        result.dimensions, 
+        { 
+          medianFontSize, 
+          bodyTextColor 
+        }
+      );
       
       // Prepare the return object
       const extractedData = {
@@ -74,7 +112,11 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
         items: textItems,
         dimensions: result.dimensions,
         titleBlock: titleBlockAnalysis,
-        pdfDocument: result.pdf
+        pdfDocument: result.pdf,
+        textStats: {
+          medianFontSize,
+          bodyTextColor
+        }
       };
       
       // Log title block information
@@ -101,6 +143,20 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
       updateFileListItem(fileId, `Error: ${error.message}`, 'error');
       throw error;
     });
+}
+
+// Helper function to calculate median of an array
+function calculateMedian(numbers) {
+  if (!numbers || numbers.length === 0) return 0;
+  
+  const sorted = [...numbers].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+  
+  return sorted[middle];
 }
 
 // Load PDF for display in the viewer

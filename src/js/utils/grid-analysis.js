@@ -1,9 +1,9 @@
-
 /**
  * Grid analysis utilities for PDF processing
  */
 
 import { average, groupSimilarPositions, getGroupIdForPosition } from './position-utils.js';
+import { drawingNumberRE, scaleRE, dateRE, revisionRE, calculateConfidence } from './validators.js';
 
 // Paper size ranges in points (1/72 inch)
 export const paperSizes = {
@@ -34,19 +34,19 @@ export const fieldLabels = {
 // Field validation patterns
 export const fieldPatterns = {
   "drawing": {
-    pattern: /^[A-Z0-9\-_]{2,20}$/,
+    pattern: drawingNumberRE,
     fallbackPatterns: [/[A-Z0-9]{2,}/i]
   },
   "scale": {
-    pattern: /^\d+[:/@]\d+$/i,
+    pattern: scaleRE,
     validValues: ["N/A", "AS INDICATED", "NTS", "NONE", "FULL", "HALF"]
   },
   "revision": {
-    pattern: /^P\d+$/,
+    pattern: revisionRE,
     fallbackPatterns: [/^[A-Z]?\d{1,2}$/, /^REV\s*[A-Z0-9]$/i]
   },
   "date": {
-    pattern: /\d{2,4}[-/]\d{1,2}[-/]\d{2,4}/,
+    pattern: dateRE,
     fallbackPatterns: [/\d{1,2}[-/\.\s][A-Za-z]{3,9}[-/\.\s]\d{2,4}/]
   }
 };
@@ -78,9 +78,10 @@ export function determineOrientation(width, height) {
   return width > height ? 'landscape' : 'portrait';
 }
 
-// Analyze page for title block
-export function analyzeTitleBlock(textItems, dimensions) {
+// Analyze page for title block with weighted scoring
+export function analyzeTitleBlock(textItems, dimensions, textStats = {}) {
   const { width, height } = dimensions;
+  const { medianFontSize = 10, bodyTextColor = null } = textStats;
   const cellWidth = width / 4;
   const cellHeight = height / 4;
   
@@ -88,10 +89,11 @@ export function analyzeTitleBlock(textItems, dimensions) {
   const grid = Array(4).fill().map(() => Array(4).fill().map(() => ({ 
     items: [], 
     keywordCount: 0,
+    weightedScore: 0,
     content: []
   })));
   
-  // Assign text items to grid cells
+  // Assign text items to grid cells with weighted scoring
   textItems.forEach(item => {
     const col = Math.min(3, Math.max(0, Math.floor(item.x / cellWidth)));
     const row = Math.min(3, Math.max(0, Math.floor((height - item.y) / cellHeight)));
@@ -106,16 +108,56 @@ export function analyzeTitleBlock(textItems, dimensions) {
     );
     
     if (hasKeyword) {
+      // Basic keyword count
       grid[row][col].keywordCount++;
+      
+      // Weighted scoring system
+      let weight = 1.0; // Base weight
+      
+      // Apply weight if font is larger than median
+      if (item.fontSize && medianFontSize) {
+        if (item.fontSize > medianFontSize * 1.2) {
+          weight += 2.0; // Significantly larger font
+        } else if (item.fontSize > medianFontSize * 1.1) {
+          weight += 1.0; // Moderately larger font
+        }
+      }
+      
+      // Apply weight if color is different from body text
+      if (item.fillColor && bodyTextColor) {
+        const itemColorKey = JSON.stringify(item.fillColor);
+        const bodyColorKey = JSON.stringify(bodyTextColor);
+        
+        if (itemColorKey !== bodyColorKey) {
+          weight += 1.0;
+        }
+      }
+      
+      // Apply weight based on font name (might indicate bold/italic/etc)
+      if (item.fontName && (
+          item.fontName.toLowerCase().includes('bold') || 
+          item.fontName.toLowerCase().includes('heavy') ||
+          item.fontName.toLowerCase().includes('black')
+      )) {
+        weight += 1.5;
+      }
+      
+      grid[row][col].weightedScore += weight;
     }
   });
   
-  // Find the cell with the highest keyword count
-  let bestCell = { row: 0, col: 0, count: 0 };
+  // Find the cell with the highest weighted score
+  let bestCell = { row: 0, col: 0, count: 0, score: 0 };
   for (let row = 0; row < 4; row++) {
     for (let col = 0; col < 4; col++) {
-      if (grid[row][col].keywordCount > bestCell.count) {
-        bestCell = { row, col, count: grid[row][col].keywordCount };
+      // Prioritize weighted score but still consider keyword count
+      if (grid[row][col].weightedScore > bestCell.score) {
+        bestCell = { 
+          row, 
+          col, 
+          count: grid[row][col].keywordCount,
+          score: grid[row][col].weightedScore 
+        };
       }
     }
   }
@@ -169,13 +211,18 @@ export function analyzeTitleBlock(textItems, dimensions) {
     });
     
     // Extract field-value pairs from the title block
-    tableStructure.extractedFields = extractFieldsFromTableStructure(tableStructure, bestCellItems);
+    tableStructure.extractedFields = extractFieldsFromTableStructure(
+      tableStructure, 
+      bestCellItems, 
+      { medianFontSize, bodyTextColor }
+    );
   }
   
   // Create visualization information
   const gridInfo = grid.map((row, rowIndex) => 
     row.map((cell, colIndex) => ({
       keywordCount: cell.keywordCount,
+      weightedScore: cell.weightedScore,
       itemCount: cell.items.length,
       isCandidate: rowIndex === bestCell.row && colIndex === bestCell.col,
       content: cell.content.join(' ')
@@ -195,9 +242,10 @@ export function analyzeTitleBlock(textItems, dimensions) {
  * Validate a field value against expected patterns
  * @param {string} fieldType Type of field (drawing, scale, revision, date)
  * @param {string} value The value to validate
+ * @param {object} textAttributes Additional attributes for confidence calculation
  * @returns {object} Validation result with confidence score and validation details
  */
-function validateFieldValue(fieldType, value) {
+function validateFieldValue(fieldType, value, textAttributes = {}) {
   if (!value || value.trim() === '') {
     return {
       valid: false,
@@ -206,6 +254,7 @@ function validateFieldValue(fieldType, value) {
     };
   }
 
+  // Get the patterns for this field type
   const patterns = fieldPatterns[fieldType];
   if (!patterns) {
     return {
@@ -215,36 +264,40 @@ function validateFieldValue(fieldType, value) {
     };
   }
 
-  // Check primary pattern
-  if (patterns.pattern && patterns.pattern.test(value)) {
-    return {
-      valid: true,
-      confidence: 1,
-      reason: 'Matches primary pattern'
-    };
-  }
-
+  // Check if value matches primary regex pattern
+  const regexPass = patterns.pattern && patterns.pattern.test(value);
+  
   // Check valid values list
-  if (patterns.validValues && patterns.validValues.some(validValue => 
-    value.toUpperCase() === validValue.toUpperCase())) {
+  const isValidValue = patterns.validValues && patterns.validValues.some(validValue => 
+    value.toUpperCase() === validValue.toUpperCase());
+  
+  // Check fallback patterns if primary pattern fails
+  const fallbackPass = !regexPass && patterns.fallbackPatterns && 
+    patterns.fallbackPatterns.some(fallbackPattern => fallbackPattern.test(value));
+  
+  // Calculate font weight factor (default to 1.0)
+  let fontWeightFactor = 1.0;
+  if (textAttributes.fontSize && textAttributes.medianFontSize) {
+    if (textAttributes.fontSize > textAttributes.medianFontSize * 1.2) {
+      fontWeightFactor = 1.2; // Higher confidence for larger text
+    }
+  }
+  
+  // Calculate block score factor
+  const blockScoreFactor = Math.min(1.0, 0.8 + (textAttributes.blockScore || 0) * 0.05);
+  
+  if (regexPass || isValidValue) {
     return {
       valid: true,
-      confidence: 1,
-      reason: 'Matches valid value'
+      confidence: calculateConfidence(true, fontWeightFactor, blockScoreFactor),
+      reason: regexPass ? 'Matches primary pattern' : 'Matches valid value'
     };
-  }
-
-  // Check fallback patterns
-  if (patterns.fallbackPatterns) {
-    for (const fallbackPattern of patterns.fallbackPatterns) {
-      if (fallbackPattern.test(value)) {
-        return {
-          valid: true,
-          confidence: 0.7,
-          reason: 'Matches fallback pattern'
-        };
-      }
-    }
+  } else if (fallbackPass) {
+    return {
+      valid: true,
+      confidence: calculateConfidence(false, fontWeightFactor, blockScoreFactor),
+      reason: 'Matches fallback pattern'
+    };
   }
 
   // Special case for dates - check if it might be a date
@@ -253,7 +306,7 @@ function validateFieldValue(fieldType, value) {
     if (!isNaN(potentialDate.getTime())) {
       return {
         valid: true,
-        confidence: 0.6,
+        confidence: calculateConfidence(false, fontWeightFactor, blockScoreFactor) * 0.8,
         reason: 'Parseable as date'
       };
     }
@@ -267,15 +320,12 @@ function validateFieldValue(fieldType, value) {
 }
 
 /**
- * Extract field-value pairs from the detected table structure
- * Search strategies:
- * 1. Look in same cell for label and value
- * 2. Look anti-clockwise (below → right → above → left) for values
- * 3. Skip other known labels as candidate values
+ * Extract field-value pairs from the detected table structure with improved regex validation
  */
-function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
+function extractFieldsFromTableStructure(tableStructure, titleBlockItems, textStats) {
   const extractedFields = {};
   const processedCellIds = new Set();
+  const { medianFontSize, bodyTextColor } = textStats || {};
   
   // Create a map for quick lookup of items by cell ID
   const cellMap = {};
@@ -340,6 +390,7 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
     let valueItem = null;
     let valueCellId = item.cellId;
     let distance = 0;
+    let validMatch = false;
     
     // Check if there's a non-label item in the same cell
     const cellItems = cellMap[item.cellId] || [];
@@ -347,10 +398,33 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
       cellItem !== item && !isKnownLabel(cellItem.str.trim())
     );
     
+    // First try to find a regex-matching value in the same cell
     if (valueItems.length > 0) {
-      // Use the first non-label item in the same cell
-      valueItem = valueItems[0];
-    } else {
+      for (const candidate of valueItems) {
+        const candidateValue = candidate.str.trim();
+        // Check against field-specific regex
+        if (fieldType in fieldPatterns) {
+          const pattern = fieldPatterns[fieldType].pattern;
+          if (pattern && pattern.test(candidateValue)) {
+            valueItem = candidate;
+            validMatch = true;
+            break;
+          }
+        } else {
+          // If no specific regex, take the first non-label item
+          valueItem = candidate;
+          break;
+        }
+      }
+      
+      // If we didn't find a valid match, use the first one anyway
+      if (!valueItem && valueItems.length > 0) {
+        valueItem = valueItems[0];
+      }
+    }
+    
+    // If we didn't find a value in the same cell, search in adjacent cells
+    if (!valueItem) {
       // Search anti-clockwise: below → right → above → left
       const directions = [
         { row: cellCoords.row + 1, col: cellCoords.col }, // below
@@ -363,13 +437,33 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
         const targetCellId = `row_${dir.row}_col_${dir.col}`;
         const targetItems = cellMap[targetCellId] || [];
         
-        // Find first non-label item
-        const candidate = targetItems.find(targetItem => 
+        // Find candidates that aren't labels
+        const candidates = targetItems.filter(targetItem => 
           !isKnownLabel(targetItem.str.trim())
         );
         
-        if (candidate) {
-          valueItem = candidate;
+        // First try to find a regex-matching value
+        for (const candidate of candidates) {
+          const candidateValue = candidate.str.trim();
+          // Check against field-specific regex if available
+          if (fieldType in fieldPatterns) {
+            const pattern = fieldPatterns[fieldType].pattern;
+            if (pattern && pattern.test(candidateValue)) {
+              valueItem = candidate;
+              valueCellId = targetCellId;
+              distance = 1; // Adjacent cell
+              validMatch = true;
+              break;
+            }
+          }
+        }
+        
+        // If we found a valid match, stop searching
+        if (validMatch) break;
+        
+        // If no valid match but we have candidates, use the first one
+        if (!valueItem && candidates.length > 0) {
+          valueItem = candidates[0];
           valueCellId = targetCellId;
           distance = 1; // Adjacent cell
           break;
@@ -377,10 +471,22 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
       }
     }
     
-    // Store the extracted field-value pair with validation
+    // Store the extracted field-value pair with improved validation
     if (valueItem) {
       const valueText = valueItem.str.trim();
-      const validation = validateFieldValue(fieldType, valueText);
+      
+      // Calculate additional attributes for validation
+      const textAttributes = {
+        fontSize: valueItem.fontSize,
+        medianFontSize,
+        fontName: valueItem.fontName,
+        fillColor: valueItem.fillColor,
+        bodyTextColor,
+        blockScore: distance === 0 ? 3 : 1 // Higher score for same-cell matches
+      };
+      
+      // Validate with enhanced confidence calculation
+      const validation = validateFieldValue(fieldType, valueText, textAttributes);
       
       extractedFields[fieldType] = {
         label: itemText,
@@ -389,7 +495,12 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
         valueCellId: valueCellId,
         distance: distance,
         confidence: validation.confidence,
-        validationDetails: validation
+        validationDetails: validation,
+        textAttributes: {
+          fontSize: valueItem.fontSize,
+          fontName: valueItem.fontName,
+          fillColor: valueItem.fillColor
+        }
       };
     } else {
       // Store the label without a value
@@ -411,4 +522,3 @@ function extractFieldsFromTableStructure(tableStructure, titleBlockItems) {
   
   return extractedFields;
 }
-
