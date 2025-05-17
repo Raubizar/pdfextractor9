@@ -1,4 +1,3 @@
-
 /**
  * Regex validators for text extraction
  */
@@ -24,3 +23,6 @@ export function matchesPattern(str, pattern) {
 export function calculateConfidence(regexPass, fontWeightFactor, blockScoreFactor) {
   return (regexPass ? 1 : 0.5) * fontWeightFactor * blockScoreFactor;
 }
+
+// Make sure we export the calculateConfidence function for external use
+export { calculateConfidence } from './field-specific-validations.js';

@@ -4,7 +4,9 @@
  */
 
 import { fieldPatterns } from './title-block-constants.js';
-import { calculateConfidence } from './validators.js';
+import { validateAsDate } from './field-specific-validations.js';
+import { createFailedValidation, createSuccessfulValidation } from './validation-result.js';
+import { calculateConfidence } from './field-specific-validations.js';
 
 /**
  * Validate a field value against expected patterns
@@ -15,23 +17,63 @@ import { calculateConfidence } from './validators.js';
  */
 export function validateFieldValue(fieldType, value, textAttributes = {}) {
   if (!value || value.trim() === '') {
-    return {
-      valid: false,
-      confidence: 0,
-      reason: 'Empty value'
-    };
+    return createFailedValidation('Empty value');
   }
 
   // Get the patterns for this field type
   const patterns = fieldPatterns[fieldType];
   if (!patterns) {
-    return {
-      valid: true,
-      confidence: 0.5, // Default confidence for fields without patterns
-      reason: 'No validation pattern defined'
-    };
+    return createSuccessfulValidation(0.5, 'No validation pattern defined');
   }
 
+  // Extract attributes for confidence calculation
+  const fontWeightFactor = calculateFontWeightFactor(textAttributes);
+  const blockScoreFactor = Math.min(1.0, 0.8 + (textAttributes.blockScore || 0) * 0.05);
+
+  // Validation checks
+  const validationResult = performPatternValidation(patterns, value, fontWeightFactor, blockScoreFactor);
+  if (validationResult) {
+    return validationResult;
+  }
+
+  // Special case for dates if other validations fail
+  if (fieldType === 'date') {
+    const dateValidation = validateAsDate(value, fontWeightFactor, blockScoreFactor);
+    if (dateValidation) {
+      return dateValidation;
+    }
+  }
+
+  return createFailedValidation('Does not match any expected pattern');
+}
+
+/**
+ * Calculate font weight factor based on text attributes
+ * @param {object} textAttributes Text attributes including fontSize and medianFontSize
+ * @returns {number} Font weight factor
+ */
+function calculateFontWeightFactor(textAttributes) {
+  // Default to 1.0
+  let fontWeightFactor = 1.0;
+  
+  if (textAttributes.fontSize && textAttributes.medianFontSize) {
+    if (textAttributes.fontSize > textAttributes.medianFontSize * 1.2) {
+      fontWeightFactor = 1.2; // Higher confidence for larger text
+    }
+  }
+  
+  return fontWeightFactor;
+}
+
+/**
+ * Perform pattern validation against primary and fallback patterns
+ * @param {object} patterns The patterns to validate against
+ * @param {string} value The value to validate
+ * @param {number} fontWeightFactor Font weight factor
+ * @param {number} blockScoreFactor Block score factor
+ * @returns {object|null} Validation result if successful, null otherwise
+ */
+function performPatternValidation(patterns, value, fontWeightFactor, blockScoreFactor) {
   // Check if value matches primary regex pattern
   const regexPass = patterns.pattern && patterns.pattern.test(value);
   
@@ -43,46 +85,17 @@ export function validateFieldValue(fieldType, value, textAttributes = {}) {
   const fallbackPass = !regexPass && patterns.fallbackPatterns && 
     patterns.fallbackPatterns.some(fallbackPattern => fallbackPattern.test(value));
   
-  // Calculate font weight factor (default to 1.0)
-  let fontWeightFactor = 1.0;
-  if (textAttributes.fontSize && textAttributes.medianFontSize) {
-    if (textAttributes.fontSize > textAttributes.medianFontSize * 1.2) {
-      fontWeightFactor = 1.2; // Higher confidence for larger text
-    }
-  }
-  
-  // Calculate block score factor
-  const blockScoreFactor = Math.min(1.0, 0.8 + (textAttributes.blockScore || 0) * 0.05);
-  
   if (regexPass || isValidValue) {
-    return {
-      valid: true,
-      confidence: calculateConfidence(true, fontWeightFactor, blockScoreFactor),
-      reason: regexPass ? 'Matches primary pattern' : 'Matches valid value'
-    };
+    return createSuccessfulValidation(
+      calculateConfidence(true, fontWeightFactor, blockScoreFactor),
+      regexPass ? 'Matches primary pattern' : 'Matches valid value'
+    );
   } else if (fallbackPass) {
-    return {
-      valid: true,
-      confidence: calculateConfidence(false, fontWeightFactor, blockScoreFactor),
-      reason: 'Matches fallback pattern'
-    };
+    return createSuccessfulValidation(
+      calculateConfidence(false, fontWeightFactor, blockScoreFactor),
+      'Matches fallback pattern'
+    );
   }
-
-  // Special case for dates - check if it might be a date
-  if (fieldType === 'date') {
-    const potentialDate = new Date(value);
-    if (!isNaN(potentialDate.getTime())) {
-      return {
-        valid: true,
-        confidence: calculateConfidence(false, fontWeightFactor, blockScoreFactor) * 0.8,
-        reason: 'Parseable as date'
-      };
-    }
-  }
-
-  return {
-    valid: false,
-    confidence: 0,
-    reason: 'Does not match any expected pattern'
-  };
+  
+  return null;
 }
