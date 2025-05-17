@@ -53,6 +53,30 @@ h1 {
   margin: 0 auto;
 }
 
+.upload-container.minimized {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+}
+
+.upload-options {
+  margin-bottom: 1rem;
+}
+
+.toggle-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle-container input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+.toggle-label {
+  color: var(--text-light);
+}
+
 .drop-zone {
   border: 2px dashed var(--primary-light);
   border-radius: var(--border-radius);
@@ -214,6 +238,57 @@ h1 {
   line-height: 1.5;
 }
 
+.file-list {
+  margin-bottom: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.file-item {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  align-items: center;
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item.error {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.file-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 1rem;
+}
+
+.file-status {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.view-button {
+  padding: 0.35rem 0.75rem;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.2s;
+}
+
+.view-button:hover {
+  background-color: var(--primary-dark);
+}
+
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -259,5 +334,16 @@ h1 {
   
   .pdf-viewer, .text-content {
     height: 400px;
+  }
+  
+  .file-item {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 0.5rem;
+  }
+  
+  .view-button {
+    grid-row: 3;
+    width: 100%;
   }
 }

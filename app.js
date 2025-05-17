@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let extractedTextItems = {};
   let currentFileId = null;
   
+  // Paper size ranges in points (1/72 inch)
+  const paperSizes = {
+    A0: { width: [2384, 2384], height: [3370, 3370] },
+    A1: { width: [1684, 1684], height: [2384, 2384] },
+    A2: { width: [1191, 1191], height: [1684, 1684] },
+    A3: { width: [842, 842], height: [1191, 1191] },
+    A4: { width: [595, 595], height: [842, 842] }
+  };
+  
   // Event listeners for drag and drop
   ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
     dropZone.addEventListener(eventName, preventDefaults, false);
@@ -137,22 +146,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+  // Determine paper size based on dimensions
+  function determinePaperSize(width, height) {
+    // Make sure width and height are positive numbers
+    width = Math.abs(width);
+    height = Math.abs(height);
+    
+    // Compare to standard paper sizes with some tolerance (±5 points)
+    for (const [size, dimensions] of Object.entries(paperSizes)) {
+      const widthRange = dimensions.width;
+      const heightRange = dimensions.height;
+      
+      // Check if dimensions match this paper size (in either orientation)
+      if ((Math.abs(width - widthRange[0]) <= 5 && Math.abs(height - heightRange[0]) <= 5) ||
+          (Math.abs(width - heightRange[0]) <= 5 && Math.abs(height - widthRange[0]) <= 5)) {
+        return size;
+      }
+    }
+    
+    // If no standard size matches, return "Custom"
+    return "Custom";
+  }
+  
+  // Determine page orientation
+  function determineOrientation(width, height) {
+    return width > height ? 'landscape' : 'portrait';
+  }
+  
   // Process the first page of a PDF
   function processFirstPage(data, fileId, fileName) {
     // Load PDF document
     pdfjsLib.getDocument({ data }).promise
       .then(function(pdf) {
         // Get the first page
-        return pdf.getPage(1);
+        return pdf.getPage(1).then(page => {
+          // Get page dimensions from viewport
+          const viewport = page.getViewport({ scale: 1.0 });
+          const width = viewport.width;
+          const height = viewport.height;
+          
+          // Get mediabox if available (more accurate than viewport)
+          const mediaBox = page.getViewport({ scale: 1.0 }).viewBox;
+          const mediaBoxWidth = mediaBox ? Math.abs(mediaBox[2] - mediaBox[0]) : width;
+          const mediaBoxHeight = mediaBox ? Math.abs(mediaBox[3] - mediaBox[1]) : height;
+          
+          // Use mediaBox dimensions if available, otherwise use viewport
+          const finalWidth = mediaBox ? mediaBoxWidth : width;
+          const finalHeight = mediaBox ? mediaBoxHeight : height;
+          
+          // Determine paper size and orientation
+          const paperSize = determinePaperSize(finalWidth, finalHeight);
+          const orientation = determineOrientation(finalWidth, finalHeight);
+          const sizeOrientation = `${paperSize}_${orientation}`;
+          
+          // Extract text content with properties
+          return page.getTextContent({ normalizeWhitespace: false }).then(textContent => {
+            return {
+              page,
+              textContent,
+              dimensions: {
+                width: finalWidth,
+                height: finalHeight,
+                paperSize,
+                orientation,
+                sizeOrientation
+              }
+            };
+          });
+        });
       })
-      .then(function(page) {
-        // Extract text content with properties
-        return page.getTextContent({ normalizeWhitespace: false });
-      })
-      .then(function(textContent) {
+      .then(function(result) {
         // Process text items
-        const textItems = textContent.items.map(item => {
-          const style = textContent.styles[item.fontName];
+        const textItems = result.textContent.items.map(item => {
+          const style = result.textContent.styles[item.fontName];
           
           return {
             str: item.str,
@@ -164,14 +230,17 @@ document.addEventListener('DOMContentLoaded', () => {
           };
         });
         
-        // Store extracted items
+        // Store extracted items with dimension info
         extractedTextItems[fileId] = {
           fileName: fileName,
-          items: textItems
+          items: textItems,
+          dimensions: result.dimensions
         };
         
-        // Update file list item
-        updateFileListItem(fileId, `${textItems.length} text elements extracted`);
+        // Update file list item with size and orientation info
+        const { paperSize, orientation, width, height } = result.dimensions;
+        const dimensionText = `${paperSize} ${orientation} (${Math.round(width)}x${Math.round(height)} pts)`;
+        updateFileListItem(fileId, `${textItems.length} text elements extracted - ${dimensionText}`);
       })
       .catch(function(error) {
         console.error('Error processing PDF:', error);
@@ -201,7 +270,16 @@ document.addEventListener('DOMContentLoaded', () => {
       // Display text content
       textContent.classList.remove('hidden');
       
-      // Format the extracted text for display
+      // Format the extracted text for display with dimension information
+      const { paperSize, orientation, width, height, sizeOrientation } = fileData.dimensions;
+      
+      const headerInfo = `File: ${fileData.fileName}\n` +
+                          `Paper Size: ${paperSize}\n` +
+                          `Orientation: ${orientation}\n` +
+                          `Dimensions: ${Math.round(width)}x${Math.round(height)} points\n` +
+                          `Group Key: ${sizeOrientation}\n` +
+                          `------------------------\n\n`;
+      
       const formattedText = fileData.items.map(item => {
         return `Text: "${item.str}"\n` + 
                `Position: (${item.x.toFixed(2)}, ${item.y.toFixed(2)})\n` +
@@ -210,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                `------------------------`;
       }).join('\n');
       
-      extractedText.textContent = formattedText;
+      extractedText.textContent = headerInfo + formattedText;
     }
   }
   
