@@ -1,9 +1,10 @@
+
 /**
  * Title block extraction utilities
  */
 
 // Re-export the field extraction function from its dedicated file
-export { extractFieldsFromTableStructure } from './field-extraction.js';
+export { extractFieldsFromTableStructure } from './field-extraction/index.js';
 
 /**
  * Prioritize cell-based detection over grid-based detection
