@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const dropZone = document.getElementById('drop-zone');
@@ -29,6 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Store extracted text items for each file
   let extractedTextItems = {};
   let currentFileId = null;
+  
+  // Keywords for title block detection
+  const titleBlockKeywords = [
+    "drawing no", "dwg no", "title", "project", "scale", "rev", "date"
+  ];
   
   // Paper size ranges in points (1/72 inch)
   const paperSizes = {
@@ -173,6 +179,65 @@ document.addEventListener('DOMContentLoaded', () => {
     return width > height ? 'landscape' : 'portrait';
   }
   
+  // Analyze page for title block
+  function analyzeTitleBlock(textItems, dimensions) {
+    const { width, height } = dimensions;
+    const cellWidth = width / 4;
+    const cellHeight = height / 4;
+    
+    // Create a 4x4 grid of cells
+    const grid = Array(4).fill().map(() => Array(4).fill().map(() => ({ 
+      items: [], 
+      keywordCount: 0,
+      content: []
+    })));
+    
+    // Assign text items to grid cells
+    textItems.forEach(item => {
+      const col = Math.min(3, Math.max(0, Math.floor(item.x / cellWidth)));
+      const row = Math.min(3, Math.max(0, Math.floor((height - item.y) / cellHeight)));
+      
+      grid[row][col].items.push(item);
+      grid[row][col].content.push(item.str);
+      
+      // Check if the item contains any keywords
+      const itemText = item.str.toLowerCase();
+      const hasKeyword = titleBlockKeywords.some(keyword => 
+        itemText.includes(keyword)
+      );
+      
+      if (hasKeyword) {
+        grid[row][col].keywordCount++;
+      }
+    });
+    
+    // Find the cell with the highest keyword count
+    let bestCell = { row: 0, col: 0, count: 0 };
+    for (let row = 0; row < 4; row++) {
+      for (let col = 0; col < 4; col++) {
+        if (grid[row][col].keywordCount > bestCell.count) {
+          bestCell = { row, col, count: grid[row][col].keywordCount };
+        }
+      }
+    }
+    
+    // Create visualization information
+    const gridInfo = grid.map((row, rowIndex) => 
+      row.map((cell, colIndex) => ({
+        keywordCount: cell.keywordCount,
+        itemCount: cell.items.length,
+        isCandidate: rowIndex === bestCell.row && colIndex === bestCell.col,
+        content: cell.content.join(' ')
+      }))
+    );
+    
+    return {
+      bestCell,
+      grid: gridInfo,
+      titleBlockContent: bestCell.count > 0 ? grid[bestCell.row][bestCell.col].content.join(' ') : 'No title block found'
+    };
+  }
+  
   // Process the first page of a PDF
   function processFirstPage(data, fileId, fileName) {
     // Load PDF document
@@ -230,17 +295,27 @@ document.addEventListener('DOMContentLoaded', () => {
           };
         });
         
-        // Store extracted items with dimension info
+        // Analyze the page for title block
+        const titleBlockAnalysis = analyzeTitleBlock(textItems, result.dimensions);
+        
+        // Store extracted items with dimension info and title block analysis
         extractedTextItems[fileId] = {
           fileName: fileName,
           items: textItems,
-          dimensions: result.dimensions
+          dimensions: result.dimensions,
+          titleBlock: titleBlockAnalysis
         };
+        
+        // Log title block information
+        console.log(`Title block found in file ${fileName}:`, titleBlockAnalysis);
         
         // Update file list item with size and orientation info
         const { paperSize, orientation, width, height } = result.dimensions;
         const dimensionText = `${paperSize} ${orientation} (${Math.round(width)}x${Math.round(height)} pts)`;
-        updateFileListItem(fileId, `${textItems.length} text elements extracted - ${dimensionText}`);
+        const titleText = titleBlockAnalysis.bestCell.count > 0 
+          ? ` - Title block: R${titleBlockAnalysis.bestCell.row}C${titleBlockAnalysis.bestCell.col}`
+          : ' - No title block found';
+        updateFileListItem(fileId, `${textItems.length} text elements extracted - ${dimensionText}${titleText}`);
       })
       .catch(function(error) {
         console.error('Error processing PDF:', error);
@@ -272,12 +347,17 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Format the extracted text for display with dimension information
       const { paperSize, orientation, width, height, sizeOrientation } = fileData.dimensions;
+      const titleBlock = fileData.titleBlock;
       
       const headerInfo = `File: ${fileData.fileName}\n` +
                           `Paper Size: ${paperSize}\n` +
                           `Orientation: ${orientation}\n` +
                           `Dimensions: ${Math.round(width)}x${Math.round(height)} points\n` +
-                          `Group Key: ${sizeOrientation}\n` +
+                          `Group Key: ${sizeOrientation}\n\n` +
+                          `Title Block Analysis:\n` +
+                          `  Best Candidate: Row ${titleBlock.bestCell.row + 1}, Column ${titleBlock.bestCell.col + 1}\n` +
+                          `  Keyword Count: ${titleBlock.bestCell.count}\n` +
+                          `  Content: ${titleBlock.titleBlockContent}\n` +
                           `------------------------\n\n`;
       
       const formattedText = fileData.items.map(item => {
