@@ -5,7 +5,7 @@
 
 import { setupDragAndDrop } from './ui/drag-drop.js';
 import { handleFiles } from './utils/file-handling.js';
-import { createFileListItem, updateFileListItem, displayFileDetails, displaySummaryTable } from './ui/file-list.js';
+import { createFileListItem, updateFileListItem, displayFileDetails } from './ui/file-list.js';
 import { processFirstPage, loadPDFForViewing, extractTextFromPage } from './pdf/pdf-loader.js';
 import { renderPage, queueRenderPage, updatePageButtons } from './pdf/pdf-viewer.js';
 import { showLoadingOverlay, hideLoadingOverlay, updatePageDisplay } from './ui/page-navigation.js';
@@ -29,12 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingOverlay = document.getElementById('loading-overlay');
   const fileList = document.getElementById('file-list');
   const multipleFilesToggle = document.getElementById('multiple-files');
-  
-  // Create a button for showing the summary view
-  const summaryButton = document.createElement('button');
-  summaryButton.id = 'summary-button';
-  summaryButton.className = 'button primary';
-  summaryButton.textContent = 'Show Summary Table';
   
   // State
   let pdfDoc = null;
@@ -84,12 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(extractedData => {
           extractedTextItems[fileId] = extractedData;
-          
-          // Add summary button after first successful extraction
-          if (Object.keys(extractedTextItems).length === 1) {
-            const toolbar = document.querySelector('.toolbar');
-            toolbar.appendChild(summaryButton);
-          }
         })
         .catch(error => {
           console.error('Error in processing PDF:', error);
@@ -103,11 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
       resultsContainer.classList.remove('hidden');
     }
   }
-  
-  // Add event listener for summary button
-  summaryButton.addEventListener('click', () => {
-    displaySummaryTable(extractedTextItems, textContent, extractedText);
-  });
   
   // Setup drag and drop functionality
   setupDragAndDrop(dropZone, handleDrop);

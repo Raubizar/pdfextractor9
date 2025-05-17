@@ -1,8 +1,7 @@
+
 /**
  * File list UI functionality
  */
-
-import { createSummaryResultsTable } from './results-table.js';
 
 // Create a file list item
 export function createFileListItem(fileName, status, fileId, type = 'normal') {
@@ -31,7 +30,7 @@ export function updateFileListItem(fileId, status, type = 'normal') {
   }
 }
 
-// Format confidence as percentage with color indication
+// Format field confidence as percentage with color indication
 function formatConfidence(confidence) {
   const confidencePercent = Math.round(confidence * 100);
   const confidenceClass = confidence >= 0.8 ? 'high-confidence' : 
@@ -48,46 +47,9 @@ export function displayFileDetails(fileId, extractedTextItems, textContentElemen
     // Display text content
     textContentElement.classList.remove('hidden');
     
-    // Create a container for both the summary and raw text
-    const contentContainer = document.createElement('div');
-    contentContainer.className = 'content-container';
-    
-    // Add summary results section
-    const summaryTable = createSummaryResultsTable({ [fileId]: fileData });
-    contentContainer.appendChild(summaryTable);
-    
-    // Add raw text section with heading
-    const rawTextContainer = document.createElement('div');
-    rawTextContainer.className = 'raw-text-container';
-    
-    const rawTextHeading = document.createElement('h3');
-    rawTextHeading.textContent = 'Raw Extraction Data';
-    rawTextHeading.className = 'raw-text-heading';
-    rawTextContainer.appendChild(rawTextHeading);
-    
-    const preElement = document.createElement('pre');
-    preElement.textContent = formatAllFileDetails(fileData);
-    rawTextContainer.appendChild(preElement);
-    
-    contentContainer.appendChild(rawTextContainer);
-    
-    // Replace the content
-    extractedTextElement.innerHTML = '';
-    extractedTextElement.appendChild(contentContainer);
+    // Format content by combining different sections
+    extractedTextElement.textContent = formatAllFileDetails(fileData);
   }
-}
-
-// Display summary table for all files
-export function displaySummaryTable(extractedTextItems, textContentElement, extractedTextElement) {
-  // Display text content
-  textContentElement.classList.remove('hidden');
-  
-  // Create the summary table for all files
-  const summaryTable = createSummaryResultsTable(extractedTextItems);
-  
-  // Replace the content
-  extractedTextElement.innerHTML = '';
-  extractedTextElement.appendChild(summaryTable);
 }
 
 // Format all file details for display
