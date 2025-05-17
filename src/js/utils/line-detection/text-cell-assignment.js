@@ -1,10 +1,9 @@
-
 /**
  * Text to cell assignment utilities
  */
 
 import { isPointInCell } from './cell-detection.js';
-import { detectCellRole, analyzeInCellFieldValue } from './cell-role-detection.js';
+import { detectCellRole, analyzeInCellFieldValue } from './cell-roles/index.js';
 
 /**
  * Assign text items to cells
