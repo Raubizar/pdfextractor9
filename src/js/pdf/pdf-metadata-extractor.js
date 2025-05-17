@@ -5,6 +5,7 @@
 
 import { determinePaperSize, determineOrientation } from '../utils/paper-detection.js';
 import { analyzeTitleBlock } from '../utils/grid-analysis.js';
+import { extractLinesAndShapes, assignTextItemsToCells, getCellAdjacencyMap } from '../utils/line-detection.js';
 
 // Process the first page of a PDF to extract metadata
 export function extractPDFMetadata(page, fileName) {
@@ -39,7 +40,7 @@ export function extractPDFMetadata(page, fileName) {
 }
 
 // Process text content to extract rich text information
-export function processTextContent(textContent, dimensions) {
+export async function processTextContent(textContent, dimensions, page) {
   // Process text items with enhanced metadata
   const textItems = textContent.items.map(item => {
     const style = textContent.styles[item.fontName];
@@ -85,24 +86,53 @@ export function processTextContent(textContent, dimensions) {
   });
   
   const bodyTextColor = bodyTextColorKey !== 'null' ? JSON.parse(bodyTextColorKey) : null;
+
+  // Extract lines and shapes from the page for better table detection
+  let enhancedTextItems = textItems;
+  let lineStructures = null;
+  let tableCells = [];
+  let cellAdjacencyMap = {};
+
+  try {
+    // Extract lines and shapes to find table structure
+    lineStructures = await extractLinesAndShapes(page);
+    
+    if (lineStructures && lineStructures.tableCells && lineStructures.tableCells.length > 0) {
+      tableCells = lineStructures.tableCells;
+      
+      // Assign text items to detected cells
+      enhancedTextItems = assignTextItemsToCells(textItems, tableCells);
+      
+      // Create adjacency map for field-value detection
+      cellAdjacencyMap = getCellAdjacencyMap(tableCells);
+    }
+  } catch (error) {
+    console.error('Error extracting line structures:', error);
+    // Fall back to grid analysis if line detection fails
+  }
   
   // Analyze the page for title block with weighted scoring
   const titleBlockAnalysis = analyzeTitleBlock(
-    textItems, 
+    enhancedTextItems, 
     dimensions, 
     { 
       medianFontSize, 
-      bodyTextColor 
+      bodyTextColor,
+      tableCells,
+      cellAdjacencyMap
     }
   );
   
   return {
-    items: textItems,
+    items: enhancedTextItems,
     titleBlock: titleBlockAnalysis,
     textStats: {
       medianFontSize,
       bodyTextColor
-    }
+    },
+    lineStructures: lineStructures,
+    tableCells: tableCells,
+    cellAdjacencyMap: cellAdjacencyMap
   };
 }
 

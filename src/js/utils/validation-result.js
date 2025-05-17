@@ -14,7 +14,6 @@ export function createValidationResult(valid, confidence, reason) {
   return {
     valid,
     confidence,
-    confidence,
     reason
   };
 }

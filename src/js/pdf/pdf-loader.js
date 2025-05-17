@@ -30,9 +30,9 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
         });
       });
     })
-    .then(function(result) {
-      // Process text content
-      const textProcessingResult = processTextContent(result.textContent, result.dimensions);
+    .then(async function(result) {
+      // Process text content with enhanced cell detection
+      const textProcessingResult = await processTextContent(result.textContent, result.dimensions, result.page);
       
       // Prepare the return object
       const extractedData = {
@@ -41,25 +41,33 @@ export function processFirstPage(data, fileId, fileName, callbacks) {
         dimensions: result.dimensions,
         titleBlock: textProcessingResult.titleBlock,
         pdfDocument: result.pdf,
-        textStats: textProcessingResult.textStats
+        textStats: textProcessingResult.textStats,
+        lineStructures: textProcessingResult.lineStructures,
+        tableCells: textProcessingResult.tableCells
       };
       
       // Log title block information
       console.log(`Title block found in file ${fileName}:`, textProcessingResult.titleBlock);
       
-      // Update file list item with size and orientation info
+      // Update file list item with size, orientation and cell detection info
       const { paperSize, orientation, width, height } = result.dimensions;
       const dimensionText = `${paperSize} ${orientation} (${Math.round(width)}x${Math.round(height)} pts)`;
+      
       let titleText = textProcessingResult.titleBlock.bestCell.count > 0 
-        ? ` - Title block: R${textProcessingResult.titleBlock.bestCell.row}C${textProcessingResult.titleBlock.bestCell.col}`
+        ? ` - Title block: ${textProcessingResult.titleBlock.usingDetectedCells ? 'Cell' : 'Grid'} ${textProcessingResult.titleBlock.bestCell.row}:${textProcessingResult.titleBlock.bestCell.col}`
         : ' - No title block found';
-        
+      
       // Add table structure info if available
       if (textProcessingResult.titleBlock.tableStructure && textProcessingResult.titleBlock.tableStructure.rows.length > 0) {
         titleText += ` - ${textProcessingResult.titleBlock.tableStructure.rows.length} rows detected`;
       }
       
-      updateFileListItem(fileId, `${textProcessingResult.items.length} text elements extracted - ${dimensionText}${titleText}`);
+      // Add cell detection info
+      const cellInfo = textProcessingResult.tableCells && textProcessingResult.tableCells.length > 0
+        ? ` - ${textProcessingResult.tableCells.length} table cells detected`
+        : '';
+      
+      updateFileListItem(fileId, `${textProcessingResult.items.length} text elements extracted - ${dimensionText}${titleText}${cellInfo}`);
       
       return extractedData;
     })

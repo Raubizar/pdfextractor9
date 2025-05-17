@@ -1,4 +1,3 @@
-
 /**
  * Grid analysis utilities for PDF processing
  */
@@ -14,7 +13,17 @@ export { determinePaperSize, determineOrientation };
 // Analyze page for title block with weighted scoring
 export function analyzeTitleBlock(textItems, dimensions, textStats = {}) {
   const { width, height } = dimensions;
-  const { medianFontSize = 10, bodyTextColor = null } = textStats;
+  const { medianFontSize = 10, bodyTextColor = null, tableCells = [], cellAdjacencyMap = {} } = textStats;
+  
+  // Check if we have detected table cells from line analysis
+  const useDetectedCells = tableCells && tableCells.length > 0;
+  
+  // If we have detected cells, use them for analysis
+  if (useDetectedCells) {
+    return analyzeWithDetectedCells(textItems, dimensions, textStats);
+  }
+  
+  // Otherwise fall back to the grid-based analysis
   const cellWidth = width / 4;
   const cellHeight = height / 4;
   
@@ -168,5 +177,227 @@ export function analyzeTitleBlock(textItems, dimensions, textStats = {}) {
     fullGrid: grid, // This allows accessing the full grid data with all items
     titleBlockContent: bestCell.count > 0 ? grid[bestCell.row][bestCell.col].content.join(' ') : 'No title block found',
     tableStructure: bestCell.count > 0 ? tableStructure : null
+  };
+}
+
+/**
+ * Analyze document with detected cells from line analysis
+ * @param {Array} textItems Text items with cell information
+ * @param {Object} dimensions Page dimensions
+ * @param {Object} textStats Text statistics and detected cells
+ * @returns {Object} Title block analysis results
+ */
+function analyzeWithDetectedCells(textItems, dimensions, textStats) {
+  const { medianFontSize, bodyTextColor, tableCells, cellAdjacencyMap } = textStats;
+  
+  // Filter to only include items that are assigned to cells
+  const cellItems = textItems.filter(item => item.cellId);
+  
+  // Count keywords and calculate score for each cell
+  const cellScores = {};
+  
+  // Initialize cellScores
+  tableCells.forEach(cell => {
+    cellScores[cell.id] = {
+      id: cell.id,
+      items: [],
+      content: [],
+      keywordCount: 0,
+      weightedScore: 0,
+      row: cell.row,
+      col: cell.col,
+      dimensions: {
+        x: cell.x,
+        y: cell.y,
+        width: cell.width,
+        height: cell.height
+      }
+    };
+  });
+  
+  // Assign items to cells and calculate scores
+  cellItems.forEach(item => {
+    if (!item.cellId || !cellScores[item.cellId]) return;
+    
+    const cell = cellScores[item.cellId];
+    cell.items.push(item);
+    cell.content.push(item.str);
+    
+    // Check if the item contains any keywords
+    const itemText = item.str.toLowerCase();
+    const hasKeyword = titleBlockKeywords.some(keyword => 
+      itemText.includes(keyword)
+    );
+    
+    if (hasKeyword) {
+      // Basic keyword count
+      cell.keywordCount++;
+      
+      // Weighted scoring system (same as grid-based analysis)
+      let weight = 1.0; // Base weight
+      
+      // Apply weight if font is larger than median
+      if (item.fontSize && medianFontSize) {
+        if (item.fontSize > medianFontSize * 1.2) {
+          weight += 2.0; // Significantly larger font
+        } else if (item.fontSize > medianFontSize * 1.1) {
+          weight += 1.0; // Moderately larger font
+        }
+      }
+      
+      // Apply weight if color is different from body text
+      if (item.fillColor && bodyTextColor) {
+        const itemColorKey = JSON.stringify(item.fillColor);
+        const bodyColorKey = JSON.stringify(bodyTextColor);
+        
+        if (itemColorKey !== bodyColorKey) {
+          weight += 1.0;
+        }
+      }
+      
+      // Apply weight based on font name (might indicate bold/italic/etc)
+      if (item.fontName && (
+          item.fontName.toLowerCase().includes('bold') || 
+          item.fontName.toLowerCase().includes('heavy') ||
+          item.fontName.toLowerCase().includes('black')
+      )) {
+        weight += 1.5;
+      }
+      
+      cell.weightedScore += weight;
+    }
+  });
+  
+  // Find the cell with the highest weighted score
+  let bestCell = { id: null, row: 0, col: 0, count: 0, score: 0 };
+  
+  Object.values(cellScores).forEach(cell => {
+    if (cell.weightedScore > bestCell.score) {
+      bestCell = {
+        id: cell.id,
+        row: cell.row,
+        col: cell.col,
+        count: cell.keywordCount,
+        score: cell.weightedScore
+      };
+    }
+  });
+  
+  // Create a table structure for the best cell and its neighbors
+  let tableStructure = { rows: [], rowGroups: {}, colGroups: {}, cells: {} };
+  
+  if (bestCell.id) {
+    const bestCellData = cellScores[bestCell.id];
+    
+    // Add the best cell and adjacent cells to the table structure
+    const cellsToInclude = new Set([bestCell.id]);
+    
+    // Add adjacent cells (recursively add neighboring cells with content)
+    function addAdjacentCells(cellId, depth = 0) {
+      if (depth > 3) return; // Limit recursion depth
+      
+      const adjacentCells = cellAdjacencyMap[cellId];
+      if (!adjacentCells) return;
+      
+      // Check each direction
+      ['right', 'bottom', 'left', 'top'].forEach(direction => {
+        const adjacentId = adjacentCells[direction];
+        if (adjacentId && !cellsToInclude.has(adjacentId)) {
+          // Only include cells that have content
+          if (cellScores[adjacentId] && cellScores[adjacentId].items.length > 0) {
+            cellsToInclude.add(adjacentId);
+            // Recursively add adjacent cells with decreasing depth
+            addAdjacentCells(adjacentId, depth + 1);
+          }
+        }
+      });
+    }
+    
+    // Start adding adjacent cells from the best cell
+    addAdjacentCells(bestCell.id);
+    
+    // Create row and column groups from included cells
+    const rowMap = {};
+    const colMap = {};
+    
+    cellsToInclude.forEach(cellId => {
+      const cell = cellScores[cellId];
+      if (!cell) return;
+      
+      // Add to row map
+      if (!rowMap[cell.row]) {
+        rowMap[cell.row] = [];
+      }
+      rowMap[cell.row].push(...cell.items);
+      
+      // Add to column map
+      if (!colMap[cell.col]) {
+        colMap[cell.col] = [];
+      }
+      colMap[cell.col].push(...cell.items);
+      
+      // Add to cell map
+      tableStructure.cells[cellId] = {
+        id: cellId,
+        items: cell.items,
+        row: cell.row,
+        col: cell.col,
+        dimensions: cell.dimensions
+      };
+    });
+    
+    // Convert row map to sorted rows
+    tableStructure.rowGroups = rowMap;
+    
+    // Sort rows by their index (which corresponds to vertical position)
+    const sortedRowIndices = Object.keys(rowMap).sort((a, b) => Number(a) - Number(b));
+    
+    sortedRowIndices.forEach(rowIdx => {
+      // Sort items within row by x-coordinate
+      const rowItems = rowMap[rowIdx].sort((a, b) => a.x - b.x);
+      
+      tableStructure.rows.push({
+        rowId: rowIdx,
+        items: rowItems,
+        avgY: average(rowItems.map(item => item.y))
+      });
+    });
+    
+    tableStructure.colGroups = colMap;
+    
+    // Extract field-value pairs using our enhanced cell-based approach
+    tableStructure.extractedFields = extractFieldsFromTableStructure(
+      tableStructure,
+      tableStructure.rows.flatMap(row => row.items),
+      { 
+        medianFontSize, 
+        bodyTextColor,
+        cellAdjacencyMap,
+        cells: tableStructure.cells,
+        usingDetectedCells: true
+      }
+    );
+  }
+  
+  // Create a visualization mapping similar to grid-based analysis
+  const gridInfo = Object.values(cellScores).map(cell => ({
+    id: cell.id,
+    row: cell.row,
+    col: cell.col,
+    keywordCount: cell.keywordCount,
+    weightedScore: cell.weightedScore,
+    itemCount: cell.items.length,
+    isCandidate: cell.id === bestCell.id,
+    content: cell.content.join(' '),
+    dimensions: cell.dimensions
+  }));
+  
+  return {
+    bestCell,
+    grid: gridInfo,
+    titleBlockContent: bestCell.id ? cellScores[bestCell.id].content.join(' ') : 'No title block found',
+    tableStructure: bestCell.id ? tableStructure : null,
+    usingDetectedCells: true,
+    cellAdjacencyMap
   };
 }
