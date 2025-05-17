@@ -1,87 +1,77 @@
 
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PDF Parser</title>
-    <meta name="description" content="Browser-based PDF parsing application" />
-    <meta name="author" content="Lovable" />
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Analyzer</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- PDF.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+  <script>
+    // Set PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+  </script>
+  <!-- Load modules -->
+  <script type="module" src="src/js/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>PDF Analyzer</h1>
+      <p class="subtitle">Analyze PDF documents for title blocks and metadata</p>
+    </header>
     
-    <link rel="stylesheet" href="styles.css">
-    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    
-    <!-- PDF.js library -->
-    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  </head>
-  <body>
-    <div id="app">
-      <header>
-        <h1>PDF Parser</h1>
-        <p class="subtitle">Extract and analyze PDF content right in your browser</p>
-      </header>
+    <div id="upload-container" class="upload-container">
+      <div class="upload-options">
+        <label class="toggle-container">
+          <input type="checkbox" id="multiple-files">
+          <span class="toggle-label">Allow multiple files</span>
+        </label>
+      </div>
       
-      <main>
-        <div class="upload-container" id="upload-container">
-          <div class="upload-options">
-            <label class="toggle-container">
-              <input type="checkbox" id="multiple-files">
-              <span class="toggle-label">Allow multiple files</span>
-            </label>
-          </div>
-          <div class="drop-zone" id="drop-zone">
-            <div class="icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <path d="M12 18v-6"></path>
-                <path d="M9 15l3-3 3 3"></path>
-              </svg>
-            </div>
-            <p class="drop-text">Drag & drop your PDF here or <span class="browse-text">browse</span></p>
-            <input type="file" id="file-input" accept="application/pdf" class="file-input" />
-          </div>
-        </div>
-        
-        <div class="results-container hidden" id="results-container">
-          <div class="toolbar">
-            <button id="back-button" class="button secondary">Back</button>
-          </div>
-          
-          <div class="file-list hidden" id="file-list">
-            <!-- File list items will be inserted here dynamically -->
-          </div>
-          
-          <div class="viewer-container">
-            <div class="pdf-viewer">
-              <div class="pdf-loading" id="pdf-loading">
-                <div class="spinner"></div>
-                <p>Loading PDF...</p>
-              </div>
-              <canvas id="pdf-canvas"></canvas>
-            </div>
-            
-            <div class="text-content hidden" id="text-content">
-              <h2>Extracted Text Elements</h2>
-              <div class="text-wrapper">
-                <pre id="extracted-text"></pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-      
-      <div class="loading-overlay hidden" id="loading-overlay">
-        <div class="spinner"></div>
-        <p>Processing...</p>
+      <div id="drop-zone" class="drop-zone">
+        <div class="icon">📄</div>
+        <p class="drop-text">Drag and drop PDF files here or <span class="browse-text">browse</span></p>
+        <input type="file" id="file-input" class="file-input" accept="application/pdf">
       </div>
     </div>
     
-    <script>
-      // Set up PDF.js worker
-      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    </script>
-    <script src="app.js"></script>
-  </body>
+    <div id="results-container" class="results-container hidden">
+      <div id="file-list" class="file-list hidden"></div>
+      
+      <div class="toolbar">
+        <button id="back-button" class="button secondary">← Back</button>
+        <div class="page-controls">
+          <button id="prev-page" class="button secondary icon-button" disabled>←</button>
+          <span>Page <span id="current-page">1</span> of <span id="total-pages">1</span></span>
+          <button id="next-page" class="button secondary icon-button" disabled>→</button>
+        </div>
+        <button id="extract-text-button" class="button primary">Extract Text</button>
+      </div>
+      
+      <div class="viewer-container">
+        <div class="pdf-viewer">
+          <canvas id="pdf-canvas"></canvas>
+          <div id="pdf-loading" class="pdf-loading hidden">
+            <div class="spinner"></div>
+            <p>Loading page...</p>
+          </div>
+        </div>
+        
+        <div id="text-content" class="text-content hidden">
+          <h2>Extracted Text</h2>
+          <div class="text-wrapper">
+            <pre id="extracted-text"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+      <p>Processing PDF...</p>
+    </div>
+  </div>
+</body>
 </html>
