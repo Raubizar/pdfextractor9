@@ -6,7 +6,7 @@
 import { average, groupSimilarPositions, getGroupIdForPosition } from './position-utils.js';
 import { determinePaperSize, determineOrientation } from './paper-detection.js';
 import { titleBlockKeywords } from './title-block-constants.js';
-import { extractFieldsFromTableStructure } from './title-block-extraction.js';
+import { extractFieldsFromTableStructure } from './field-extraction.js';
 
 // Re-export the imported functions for backward compatibility
 export { determinePaperSize, determineOrientation };
