@@ -221,6 +221,55 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    // NEW: Process items within the best cell to create a table structure
+    let tableStructure = { rows: [], rowGroups: {}, colGroups: {} };
+    
+    if (bestCell.count > 0) {
+      const bestCellItems = grid[bestCell.row][bestCell.col].items;
+      
+      // Step 1: Group by similar y-coordinates (rows)
+      const yPositions = bestCellItems.map(item => item.y);
+      const rowGroups = groupSimilarPositions(yPositions, 5); // 5 points tolerance
+      
+      // Step 2: Group by similar x-coordinates (columns)
+      const xPositions = bestCellItems.map(item => item.x);
+      const colGroups = groupSimilarPositions(xPositions, 10); // 10 points tolerance
+      
+      // Step 3: Assign row and column IDs to each item
+      bestCellItems.forEach(item => {
+        const rowId = getGroupIdForPosition(item.y, rowGroups);
+        const colId = getGroupIdForPosition(item.x, colGroups);
+        item.cellId = `row_${rowId}_col_${colId}`;
+        
+        // Store in grouped structure
+        if (!tableStructure.rowGroups[rowId]) {
+          tableStructure.rowGroups[rowId] = [];
+        }
+        if (!tableStructure.colGroups[colId]) {
+          tableStructure.colGroups[colId] = [];
+        }
+        tableStructure.rowGroups[rowId].push(item);
+        tableStructure.colGroups[colId].push(item);
+      });
+      
+      // Sort rows by y-coordinate (decreasing, as PDF y-axis goes upward)
+      const sortedRowIds = Object.keys(tableStructure.rowGroups).sort((a, b) => {
+        const avgYA = average(tableStructure.rowGroups[a].map(item => item.y));
+        const avgYB = average(tableStructure.rowGroups[b].map(item => item.y));
+        return avgYB - avgYA; // Decreasing order
+      });
+      
+      // For each row, sort items by x-coordinate (increasing left-to-right)
+      sortedRowIds.forEach(rowId => {
+        const rowItems = tableStructure.rowGroups[rowId].sort((a, b) => a.x - b.x);
+        tableStructure.rows.push({ 
+          rowId, 
+          items: rowItems,
+          avgY: average(rowItems.map(item => item.y))
+        });
+      });
+    }
+    
     // Create visualization information
     const gridInfo = grid.map((row, rowIndex) => 
       row.map((cell, colIndex) => ({
@@ -234,8 +283,62 @@ document.addEventListener('DOMContentLoaded', () => {
     return {
       bestCell,
       grid: gridInfo,
-      titleBlockContent: bestCell.count > 0 ? grid[bestCell.row][bestCell.col].content.join(' ') : 'No title block found'
+      titleBlockContent: bestCell.count > 0 ? grid[bestCell.row][bestCell.col].content.join(' ') : 'No title block found',
+      tableStructure: bestCell.count > 0 ? tableStructure : null
     };
+  }
+  
+  // Helper function to group similar positions
+  function groupSimilarPositions(positions, tolerance) {
+    const groups = [];
+    const sortedPositions = [...positions].sort((a, b) => a - b);
+    
+    let currentGroup = [sortedPositions[0]];
+    let currentAvg = sortedPositions[0];
+    
+    for (let i = 1; i < sortedPositions.length; i++) {
+      const currentPos = sortedPositions[i];
+      
+      if (Math.abs(currentPos - currentAvg) <= tolerance) {
+        // Add to current group
+        currentGroup.push(currentPos);
+        currentAvg = average(currentGroup);
+      } else {
+        // Start a new group
+        groups.push({
+          positions: currentGroup,
+          average: currentAvg
+        });
+        currentGroup = [currentPos];
+        currentAvg = currentPos;
+      }
+    }
+    
+    // Add the last group if it exists
+    if (currentGroup.length > 0) {
+      groups.push({
+        positions: currentGroup,
+        average: currentAvg
+      });
+    }
+    
+    return groups;
+  }
+  
+  // Helper function to find which group a position belongs to
+  function getGroupIdForPosition(position, groups) {
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      if (Math.abs(position - group.average) <= 10) {
+        return i + 1; // 1-based index for readability
+      }
+    }
+    return 0; // Fallback
+  }
+  
+  // Helper function to calculate average
+  function average(arr) {
+    return arr.reduce((sum, val) => sum + val, 0) / arr.length;
   }
   
   // Process the first page of a PDF
@@ -312,9 +415,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update file list item with size and orientation info
         const { paperSize, orientation, width, height } = result.dimensions;
         const dimensionText = `${paperSize} ${orientation} (${Math.round(width)}x${Math.round(height)} pts)`;
-        const titleText = titleBlockAnalysis.bestCell.count > 0 
+        let titleText = titleBlockAnalysis.bestCell.count > 0 
           ? ` - Title block: R${titleBlockAnalysis.bestCell.row}C${titleBlockAnalysis.bestCell.col}`
           : ' - No title block found';
+          
+        // Add table structure info if available
+        if (titleBlockAnalysis.tableStructure && titleBlockAnalysis.tableStructure.rows.length > 0) {
+          titleText += ` - ${titleBlockAnalysis.tableStructure.rows.length} rows detected`;
+        }
+        
         updateFileListItem(fileId, `${textItems.length} text elements extracted - ${dimensionText}${titleText}`);
       })
       .catch(function(error) {
@@ -349,6 +458,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const { paperSize, orientation, width, height, sizeOrientation } = fileData.dimensions;
       const titleBlock = fileData.titleBlock;
       
+      // Create header information
       const headerInfo = `File: ${fileData.fileName}\n` +
                           `Paper Size: ${paperSize}\n` +
                           `Orientation: ${orientation}\n` +
@@ -356,19 +466,52 @@ document.addEventListener('DOMContentLoaded', () => {
                           `Group Key: ${sizeOrientation}\n\n` +
                           `Title Block Analysis:\n` +
                           `  Best Candidate: Row ${titleBlock.bestCell.row + 1}, Column ${titleBlock.bestCell.col + 1}\n` +
-                          `  Keyword Count: ${titleBlock.bestCell.count}\n` +
-                          `  Content: ${titleBlock.titleBlockContent}\n` +
-                          `------------------------\n\n`;
+                          `  Keyword Count: ${titleBlock.bestCell.count}\n`;
+      
+      let tableInfo = '';
+      
+      // Add table structure information if available
+      if (titleBlock.tableStructure && titleBlock.tableStructure.rows.length > 0) {
+        tableInfo = `\nTable Structure Analysis:\n` +
+                   `  Rows detected: ${titleBlock.tableStructure.rows.length}\n` +
+                   `  Columns detected: ${Object.keys(titleBlock.tableStructure.colGroups).length}\n\n` +
+                   `  Row contents:\n`;
+        
+        titleBlock.tableStructure.rows.forEach(row => {
+          tableInfo += `  - Row ${row.rowId} (y≈${Math.round(row.avgY)}): ${row.items.map(item => `"${item.str}"`).join(', ')}\n`;
+        });
+        
+        tableInfo += `\n  Cell IDs (row_X_col_Y):\n`;
+        
+        const cellIdItems = {};
+        titleBlock.bestCell.count > 0 && titleBlock.tableStructure && 
+          grid[titleBlock.bestCell.row][titleBlock.bestCell.col].items.forEach(item => {
+            if (item.cellId) {
+              if (!cellIdItems[item.cellId]) {
+                cellIdItems[item.cellId] = [];
+              }
+              cellIdItems[item.cellId].push(item);
+            }
+          });
+        
+        Object.keys(cellIdItems).forEach(cellId => {
+          const items = cellIdItems[cellId];
+          tableInfo += `  - ${cellId}: ${items.map(item => `"${item.str}"`).join(', ')}\n`;
+        });
+      }
+      
+      const contentInfo = `\n------------------------\n\nText Elements:\n\n`;
       
       const formattedText = fileData.items.map(item => {
         return `Text: "${item.str}"\n` + 
                `Position: (${item.x.toFixed(2)}, ${item.y.toFixed(2)})\n` +
+               (item.cellId ? `Cell ID: ${item.cellId}\n` : '') +
                `Font: ${item.fontName || 'Unknown'}, Size: ${item.fontSize || 'Unknown'}\n` +
                `Color: ${item.color ? JSON.stringify(item.color) : 'Unknown'}\n` +
                `------------------------`;
       }).join('\n');
       
-      extractedText.textContent = headerInfo + formattedText;
+      extractedText.textContent = headerInfo + tableInfo + contentInfo + formattedText;
     }
   }
   
