@@ -1,4 +1,3 @@
-
 /**
  * Table cell detection functionality
  */
@@ -43,25 +42,37 @@ export function detectTableCells(horizontalLines, verticalLines, rectangles) {
           lineIntersectsLine(bottomLine, leftLine, tolerance) &&
           lineIntersectsLine(bottomLine, rightLine, tolerance)) {
         
+        // Calculate cell properties
+        const cellX = leftLine.x;
+        const cellY = topLine.y;
+        const cellWidth = rightLine.x - leftLine.x;
+        const cellHeight = bottomLine.y - topLine.y;
+        const cellArea = cellWidth * cellHeight;
+        
+        // Generate a unique cell ID based on position and dimensions
+        // This ensures cells are identified by their physical characteristics, not just row/col
+        const cellId = `cell_${Math.round(cellX)}_${Math.round(cellY)}_${Math.round(cellWidth)}_${Math.round(cellHeight)}`;
+        
         // Create a cell
         cells.push({
-          id: `cell_${i}_${j}`,
-          x: leftLine.x,
-          y: topLine.y,
-          width: rightLine.x - leftLine.x,
-          height: bottomLine.y - topLine.y,
+          id: cellId,
+          x: cellX,
+          y: cellY,
+          width: cellWidth,
+          height: cellHeight,
           top: topLine,
           right: rightLine,
           bottom: bottomLine,
           left: leftLine,
-          // Store row and column for backwards compatibility, but not primary usage
+          // Keep row and column for backwards compatibility
           row: i,
           col: j,
-          // Add spatial info for better adjacency calculation
+          // Enhanced spatial info for better adjacency calculation
           spatial: {
-            centerX: leftLine.x + (rightLine.x - leftLine.x) / 2,
-            centerY: topLine.y + (bottomLine.y - topLine.y) / 2,
-            area: (rightLine.x - leftLine.x) * (bottomLine.y - topLine.y)
+            centerX: cellX + cellWidth / 2,
+            centerY: cellY + cellHeight / 2,
+            area: cellArea,
+            aspectRatio: cellWidth / cellHeight
           }
         });
       }
@@ -134,15 +145,27 @@ export function getCellAdjacencyMap(cells) {
       const absHorizontal = Math.abs(horizontalDistance);
       const absVertical = Math.abs(verticalDistance);
       
-      // Store distance information
-      distances.push({
-        cell: cell2,
-        horizontalDistance,
+      // Enhanced direction determination with cell size consideration
+      const direction = determineDirectionImproved(
+        horizontalDistance, 
         verticalDistance,
-        absHorizontal,
-        absVertical,
-        direction: determineDirection(horizontalDistance, verticalDistance)
-      });
+        cell1.width, 
+        cell1.height,
+        cell2.width,
+        cell2.height
+      );
+      
+      // Store distance information
+      if (direction) {
+        distances.push({
+          cell: cell2,
+          horizontalDistance,
+          verticalDistance,
+          absHorizontal,
+          absVertical,
+          direction
+        });
+      }
     });
     
     // Find nearest cell in each direction
@@ -157,8 +180,8 @@ export function getCellAdjacencyMap(cells) {
           const distA = isHorizontal ? a.absHorizontal : a.absVertical;
           const distB = isHorizontal ? b.absHorizontal : b.absVertical;
           
-          // Secondary sort by orthogonal distance
-          if (Math.abs(distA - distB) < 5) { // If primary distances are similar
+          // If primary distances are similar, sort by orthogonal alignment
+          if (Math.abs(distA - distB) < 5) {
             const orthogonalA = isHorizontal ? a.absVertical : a.absHorizontal;
             const orthogonalB = isHorizontal ? b.absVertical : b.absHorizontal;
             return orthogonalA - orthogonalB;
@@ -177,16 +200,35 @@ export function getCellAdjacencyMap(cells) {
 }
 
 /**
- * Determine the main direction between two points
+ * Improved direction determination between cells with size consideration
  * @param {number} horizontalDistance Horizontal distance
- * @param {number} verticalDistance Vertical distance 
- * @returns {string} Direction ('right', 'left', 'top', or 'bottom')
+ * @param {number} verticalDistance Vertical distance
+ * @param {number} width1 Width of cell 1
+ * @param {number} height1 Height of cell 1
+ * @param {number} width2 Width of cell 2
+ * @param {number} height2 Height of cell 2
+ * @returns {string|null} Direction ('right', 'left', 'top', or 'bottom') or null if too ambiguous
  */
-function determineDirection(horizontalDistance, verticalDistance) {
+function determineDirectionImproved(horizontalDistance, verticalDistance, width1, height1, width2, height2) {
   const absHorizontal = Math.abs(horizontalDistance);
   const absVertical = Math.abs(verticalDistance);
   
+  // Use cell dimensions to determine relative thresholds
+  const avgWidth = (width1 + width2) / 2;
+  const avgHeight = (height1 + height2) / 2;
+  
   // Determine if movement is primarily horizontal or vertical
+  // Considering relative cell sizes for better accuracy
+  const horizontalThreshold = avgWidth * 0.8;
+  const verticalThreshold = avgHeight * 0.8;
+  
+  // Check for ambiguous cases where cells are too diagonal from each other
+  if (absHorizontal > horizontalThreshold && absVertical > verticalThreshold) {
+    // Cell is too diagonal, don't consider it adjacent
+    return null;
+  }
+  
+  // Determine primary direction based on distances relative to cell sizes
   if (absHorizontal > absVertical) {
     // Primarily horizontal movement
     return horizontalDistance > 0 ? 'right' : 'left';

@@ -16,9 +16,34 @@ export const knownLabelWords = [
   'drawing', 
   'scale', 
   'date', 
-  'revision', 
+  'revision',
+  'rev',
   'title', 
-  'project', 
+  'project',
+  'proj',
   'client', 
-  'sheet'
+  'sheet',
+  'number',
+  'no',
+  'phase',
+  'address',
+  'location',
+  'contractor',
+  'consultant',
+  'architect',
+  'engineer',
+  'drawn',
+  'checked',
+  'approved',
+  'designed',
+  'issued',
+  'owner',
+  'notes',
+  'description'
 ];
+
+/**
+ * Cell field-value pattern types
+ * @typedef {'colon'|'inline-colon'|'dash'|'stacked-label-value'|'font-differentiated'|'horizontal-pair'} FieldValuePatternType
+ */
+

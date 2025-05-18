@@ -31,13 +31,8 @@ export function storeExtractedField(extractedFields, fieldType, labelText, value
       fontName: valueItem.fontName,
       fillColor: valueItem.fillColor,
       bodyTextColor,
-      blockScore: distance === 0 ? 3 : 1 // Higher score for same-cell matches
+      blockScore: distance === 0 ? 5 : (distance === 1 ? 3 : 1) // Higher score for closer matches
     };
-    
-    // Increase confidence for values in the same cell as their labels
-    if (labelCellId === valueCellId) {
-      textAttributes.blockScore = 5; // Significantly higher score for same-cell matches
-    }
     
     // Validate with enhanced confidence calculation
     const validation = validateFieldValue(fieldType, valueText, textAttributes);
@@ -77,7 +72,7 @@ export function storeExtractedField(extractedFields, fieldType, labelText, value
 
 /**
  * Process field-value pairs from cell roles
- * @param {Array} cellMap Map of cell IDs to items
+ * @param {Object} cellMap Map of cell IDs to items
  * @param {Array} fieldValueCandidates Array to store field value candidates
  * @param {Object} enhancedAdjacencyMap Adjacency map possibly updated with merged cell info
  * @param {Boolean} useDetectedCells Whether detected cells are being used
@@ -97,53 +92,68 @@ export function processFieldValueFromCellRoles(cellMap, fieldValueCandidates, en
         const labelText = cellItems.map(item => item.str.trim()).join(' ');
         const fieldType = getFieldType(labelText);
         
-        if (fieldType && useDetectedCells && enhancedAdjacencyMap[cellId]) {
-          // Check right and bottom cells for values
-          ['right', 'bottom'].forEach(direction => {
+        if (fieldType && useDetectedCells && enhancedAdjacencyMap && enhancedAdjacencyMap[cellId]) {
+          // Check all directions, prioritizing right and bottom for value cells
+          ['right', 'bottom', 'left', 'top'].forEach((direction, dirIndex) => {
             const adjacentCellId = enhancedAdjacencyMap[cellId][direction];
             if (adjacentCellId && cellMap[adjacentCellId]) {
               const adjacentItems = cellMap[adjacentCellId];
               
-              // Skip if adjacent cell is also a label
-              if (adjacentItems[0].cellRole === 'label') return;
+              // Skip if adjacent cell is also a label or header
+              if (adjacentItems[0].cellRole === 'label' || adjacentItems[0].cellRole === 'header') {
+                return;
+              }
               
-              // Add as candidate with high confidence due to role-based detection
+              // Calculate confidence based on direction and cell role
+              let directionConfidence = 0.9;
+              if (direction === 'left' || direction === 'top') {
+                directionConfidence = 0.7; // Less common directions
+              }
+              
+              if (adjacentItems[0].cellRole === 'value') {
+                directionConfidence += 0.1; // Boost if cell is identified as value
+              }
+              
+              // Add as candidate
               fieldValueCandidates.push({
                 fieldType,
                 labelText,
                 labelCellId: cellId,
                 valueCellId: adjacentCellId,
                 valueItems: adjacentItems,
-                distance: 1,
-                confidence: 0.9,
-                method: 'cell-role-adjacency'
+                distance: 1, // Adjacent cells have distance 1
+                confidence: directionConfidence,
+                method: `cell-role-adjacency-${direction}`
               });
             }
           });
         }
       }
       
-      // Case 2: Find in-cell field-value patterns
-      const itemWithPattern = cellItems.find(item => 
-        item.cellFieldValue && item.cellFieldValue.hasPattern
-      );
-      
-      if (itemWithPattern) {
-        const { label, value, confidence, pattern } = itemWithPattern.cellFieldValue;
-        const fieldType = getFieldType(label);
+      // Case 2: Mixed cells containing both label and value
+      if (cellItems[0].cellRole === 'mixed') {
+        // Look for in-cell field-value patterns 
+        const itemWithPattern = cellItems.find(item => 
+          item.cellFieldValue && item.cellFieldValue.hasPattern
+        );
         
-        if (fieldType) {
-          // Add as candidate
-          fieldValueCandidates.push({
-            fieldType,
-            labelText: label,
-            labelCellId: cellId,
-            valueCellId: cellId,
-            valueText: value,
-            distance: 0,
-            confidence: confidence * 0.95, // Slightly reduce confidence as it's in-cell pattern
-            method: `in-cell-pattern-${pattern}`
-          });
+        if (itemWithPattern) {
+          const { label, value, confidence, pattern } = itemWithPattern.cellFieldValue;
+          const fieldType = getFieldType(label);
+          
+          if (fieldType) {
+            // Add as candidate
+            fieldValueCandidates.push({
+              fieldType,
+              labelText: label,
+              valueText: value,
+              labelCellId: cellId,
+              valueCellId: cellId,
+              distance: 0, // Same cell has distance 0
+              confidence: confidence * 0.95,
+              method: `mixed-cell-pattern-${pattern}`
+            });
+          }
         }
       }
     }
@@ -153,7 +163,7 @@ export function processFieldValueFromCellRoles(cellMap, fieldValueCandidates, en
 /**
  * Process field-value pairs using traditional approach
  * @param {Array} titleBlockItems Text items to process
- * @param {Object} processedCellIds Set of already processed cell IDs
+ * @param {Set} processedCellIds Set of already processed cell IDs
  * @param {Array} fieldValueCandidates Array to store field value candidates
  * @param {Object} cellMap Map of cell IDs to items
  * @param {Object} enhancedAdjacencyMap Adjacency map possibly updated with merged cell info
@@ -175,19 +185,20 @@ export function processFieldValueTraditional(
   const { findFieldValueInDetectedCells, findFieldValueInGrid } = require('./search-strategies.js');
   
   titleBlockItems.forEach(item => {
-    if (!item.cellId) return;
+    // Skip items without cell ID or already processed
+    if (!item.cellId || processedCellIds.has(item.cellId)) return;
     
     const itemText = item.str.trim();
     const fieldType = getFieldType(itemText);
     
-    // Skip if not a label or already processed
-    if (!fieldType || processedCellIds.has(item.cellId)) return;
+    // Skip if not a label
+    if (!fieldType) return;
     
     // Mark this cell as processed for the traditional approach
     processedCellIds.add(item.cellId);
     
     // Strategy depends on whether we're using detected cells or not
-    if (useDetectedCells) {
+    if (useDetectedCells && enhancedAdjacencyMap) {
       findFieldValueInDetectedCells(
         fieldValueCandidates, 
         fieldType, 
@@ -210,3 +221,4 @@ export function processFieldValueTraditional(
     }
   });
 }
+

@@ -9,6 +9,6 @@ export { detectTableCells, isPointInCell, getCellAdjacencyMap } from './cell-det
 export { mergeNearbyLines, createMergedLine } from './line-merging.js';
 export { lineIntersectsLine } from './intersection-utils.js';
 export { assignTextItemsToCells } from './text-cell-assignment.js';
-export { detectCellRole, analyzeInCellFieldValue } from './cell-roles/index.js';
+export { detectCellRole, analyzeInCellFieldValue, knownLabelWords } from './cell-roles/index.js';
 export { detectMergedCells, updateAdjacencyWithMergedCells } from './merged-cell-detection.js';
 

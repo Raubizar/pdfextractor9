@@ -1,3 +1,4 @@
+
 /**
  * Text to cell assignment utilities
  */
@@ -51,6 +52,8 @@ export function assignTextItemsToCells(textItems, cells, textStats = {}) {
           cellContentMap[cell.id] = [];
         }
         cellContentMap[cell.id].push(item);
+        
+        // Only assign to one cell (the first match)
         break;
       }
     }
@@ -64,7 +67,7 @@ export function assignTextItemsToCells(textItems, cells, textStats = {}) {
     const cell = cells.find(c => c.id === cellId);
     if (!cell) return;
     
-    // Detect cell role
+    // Detect cell role with our enhanced detection
     const roleInfo = detectCellRole(cellItems, textStats, cell);
     
     // Analyze for in-cell field-value patterns
