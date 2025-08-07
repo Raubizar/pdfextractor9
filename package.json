@@ -49,8 +49,5 @@
     "last 2 versions",
     "not dead"
   ]
-  {
-  "scripts": {
-    "build:dev": "vite build --mode development"
-  }
+  
 }
