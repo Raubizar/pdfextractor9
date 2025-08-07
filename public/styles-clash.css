@@ -333,12 +333,13 @@ input[type="file"] {
     text-align: center;
 }
 
-/* Summary Grid - Compact */
+/* Summary Grid - Horizontal Layout */
 .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    display: flex;
+    flex-direction: row;
     gap: 16px;
     margin-top: 16px;
+    justify-content: space-between;
 }
 
 /* Summary Cards */
@@ -349,6 +350,8 @@ input[type="file"] {
     padding: 20px;
     text-align: center;
     transition: all 0.2s;
+    flex: 1;
+    min-width: 0;
 }
 
 .card:hover {
@@ -436,7 +439,7 @@ input[type="file"] {
 /* Responsive Design */
 @media (max-width: 768px) {
     .summary-grid {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        flex-direction: column;
         gap: 0.75rem;
     }
     
@@ -475,7 +478,7 @@ input[type="file"] {
 
 @media (max-width: 480px) {
     .summary-grid {
-        grid-template-columns: repeat(2, 1fr);
+        flex-direction: column;
         gap: 0.5rem;
     }
     
