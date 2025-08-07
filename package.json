@@ -43,9 +43,14 @@
     "xlsx": "^0.18.5",
     "chart.js": "^4.4.0"
   },
+  
   "browserslist": [
     "> 1%",
     "last 2 versions",
     "not dead"
   ]
-} 
+  {
+  "scripts": {
+    "build:dev": "vite build --mode development"
+  }
+}
