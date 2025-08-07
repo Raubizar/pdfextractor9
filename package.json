@@ -17,6 +17,7 @@
     "clean": "rimraf dist archived-files",
     "archive": "mkdir archived-files && mv script.js styles.css styles-modern.css styles_backup.css table-diagnostic.js test-table-fix.html CHART_FIXES_SUMMARY.md FIX-INSTRUCTIONS.md archived-files/",
     "optimize": "npm run minify && npm run minify-css && npm run archive"
+    "build:dev": "vite build --mode development"
   },
   "keywords": [
     "quality-control",
