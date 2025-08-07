@@ -1,0 +1,41 @@
+/* DESKTOP LAYOUT OVERRIDE - FORCE GRID LAYOUT */
+.main-layout {
+    display: grid !important;
+    grid-template-columns: 350px 1fr !important;
+    gap: 24px !important;
+    padding: 24px !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: calc(100vh - 80px) !important;
+}
+
+.column-1 {
+    width: 350px !important;
+    max-width: 350px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+}
+
+.column-3 {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 24px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+.summary-section {
+    order: 1 !important;
+}
+
+.results-section {
+    order: 2 !important;
+    flex: 1 !important;
+}
+
+.summary-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px !important;
+}

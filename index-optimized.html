@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Modern Drawing QC Application for Engineering Quality Control">
+    <meta name="author" content="Rubens Lage">
+    <title>Drawing QC - Modern Quality Control</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="styles-clash.css" as="style">
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" as="script">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js" as="script">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles-clash.css">
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Drawing QC - Modern Quality Control">
+    <meta property="og:description" content="Comprehensive quality control application for engineering drawings">
+    <meta property="og:type" content="website">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Loading Drawing QC...</h2>
+            <p>Initializing quality control system</p>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="desktop-app" id="main-app" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <h1>Drawing QC</h1>
+                <span class="version-badge">v2.0</span>
+            </div>
+            <div class="header-controls">
+                <button class="header-btn" onclick="showAbout()" aria-label="About">
+                    <span class="icon">ℹ️</span>
+                    <span class="text">About</span>
+                </button>
+                <button class="header-btn" onclick="showSettings()" aria-label="Settings">
+                    <span class="icon">⚙️</span>
+                    <span class="text">Settings</span>
+                </button>
+                <button class="header-btn" onclick="toggleDarkMode()" aria-label="Toggle Dark Mode">
+                    <span class="icon" id="theme-icon">🌙</span>
+                    <span class="text">Theme</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <div class="container">
+            <main class="main-layout">
+            
+            <!-- Left Panel: Controls -->
+            <div class="column-1">
+                
+                <!-- Action Bar -->
+                <div class="action-bar">
+                    <div class="primary-actions">
+                        <button class="btn-primary" id="runChecks" style="width: 100%; margin-top: 8px;">
+                            <span class="btn-icon">🚀</span>
+                            <span class="btn-text">Run Checks</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- File Inputs -->
+                <div class="file-inputs">
+                    <h3>Input Files</h3>
+                    
+                    <div class="file-chip" onclick="document.getElementById('folderInput').click()" role="button" tabindex="0">
+                        <span class="file-icon">📁</span>
+                        <div class="file-info">
+                            <div class="file-name">Select Folder</div>
+                            <div class="file-status" id="folderStatus">No folder selected</div>
+                        </div>
+                        <span class="file-action">Browse</span>
+                    </div>
+                    <input type="file" id="folderInput" webkitdirectory multiple aria-label="Select project folder">
+
+                    <div class="file-chip" onclick="document.getElementById('registerFile').click()" role="button" tabindex="0">
+                        <span class="file-icon">📋</span>
+                        <div class="file-info">
+                            <div class="file-name">Drawing Register</div>
+                            <div class="file-status" id="registerStatus">No file selected</div>
+                        </div>
+                        <span class="file-action">Browse</span>
+                    </div>
+                    <input type="file" id="registerFile" accept=".xlsx,.xls" aria-label="Select drawing register file">
+
+                    <div class="file-chip" onclick="document.getElementById('namingRulesFile').click()" role="button" tabindex="0">
+                        <span class="file-icon">📝</span>
+                        <div class="file-info">
+                            <div class="file-name">Naming Rules</div>
+                            <div class="file-status" id="namingStatus">No file selected</div>
+                        </div>
+                        <span class="file-action">Browse</span>
+                    </div>
+                    <input type="file" id="namingRulesFile" accept=".xlsx,.xls" aria-label="Select naming rules file">
+
+                    <div class="file-chip" onclick="document.getElementById('titleBlocksFile').click()" role="button" tabindex="0">
+                        <span class="file-icon">🏷️</span>
+                        <div class="file-info">
+                            <div class="file-name">Title Blocks</div>
+                            <div class="file-status" id="titleBlocksStatus">No file selected</div>
+                        </div>
+                        <span class="file-action">Browse</span>
+                    </div>
+                    <input type="file" id="titleBlocksFile" accept=".xlsx,.xls" aria-label="Select title blocks file">
+                </div>
+
+                <!-- Naming Rules Settings -->
+                <div class="inline-controls" id="excelConfig" style="display: none;">
+                    <h3>⚙️ Naming Rules Settings</h3>
+                    <div class="inline-row">
+                        <label for="registerSheetSelect">Sheet:</label>
+                        <select id="registerSheetSelect" aria-label="Select Excel sheet">
+                            <option value="">Select sheet...</option>
+                        </select>
+                    </div>
+                    <div class="inline-row">
+                        <label for="registerColumnSelect">Column:</label>
+                        <select id="registerColumnSelect" aria-label="Select column for file names">
+                            <option value="">Select column...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Expected Values -->
+                <div class="expected-values-card">
+                    <h3>Expected Values</h3>
+                    <div class="expected-values-grid">
+                        <div class="input-compact">
+                            <label for="revCode">Rev Code:</label>
+                            <input type="text" id="revCode" placeholder="e.g., A, B, C">
+                        </div>
+                        <div class="input-compact">
+                            <label for="revDate">Rev Date:</label>
+                            <input type="date" id="revDate">
+                        </div>
+                        <div class="input-compact">
+                            <label for="suitability">Suitability:</label>
+                            <input type="text" id="suitability" placeholder="e.g., For Construction">
+                        </div>
+                        <div class="input-compact">
+                            <label for="stage">Stage:</label>
+                            <input type="text" id="stage" placeholder="e.g., Design">
+                        </div>
+                        <div class="input-compact span-2">
+                            <label for="revDesc">Rev Desc:</label>
+                            <input type="text" id="revDesc" placeholder="Revision description">
+                        </div>
+                        <div class="input-compact">
+                            <label for="sep">Sep:</label>
+                            <input type="text" id="sep" placeholder="e.g., Y/N">
+                        </div>
+                        <div class="checkbox-compact">
+                            <label>
+                                <input type="checkbox" id="sheetOnly">
+                                <span>Sheet Only</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="column-3">
+                <!-- Summary Section -->
+                <section class="summary-section">
+                    <h2>Summary</h2>
+                    <div class="summary-grid">
+                        <article class="card">
+                            <h3>Delivered</h3>
+                            <div class="chart-container">
+                                <div class="donut" id="deliveredChart">
+                                    <!-- SVG donut will be inserted here -->
+                                </div>
+                            </div>
+                        </article>
+                        <article class="card">
+                            <h3>Naming Compliance</h3>
+                            <div class="chart-container">
+                                <div class="donut" id="namingChart">
+                                    <!-- SVG donut will be inserted here -->
+                                </div>
+                            </div>
+                        </article>
+                        <article class="card">
+                            <h3>Title Block Compliance</h3>
+                            <div class="chart-container">
+                                <div class="donut" id="titleBlockChart">
+                                    <!-- SVG donut will be inserted here -->
+                                </div>
+                            </div>
+                        </article>
+                        <article class="card">
+                            <h3>Overall QC Score</h3>
+                            <div class="chart-container">
+                                <div class="donut" id="overallChart">
+                                    <!-- SVG donut will be inserted here -->
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- Detailed Results Section -->
+                <section class="results-section">
+                    <div class="results-header">
+                        <h2>Detailed Results</h2>
+                        <div class="results-controls">
+                            <select id="fileTypeFilter" aria-label="Filter by file type">
+                                <option value="all">All Files</option>
+                                <option value="pdf">PDF Only</option>
+                                <option value="dwg">DWG Only</option>
+                                <option value="other">Other Files</option>
+                            </select>
+                            <input type="text" placeholder="Search results..." id="searchInput" aria-label="Search results">
+                            <button class="btn-secondary" id="downloadXLSX">
+                                <span class="btn-icon">📊</span>
+                                <span class="btn-text">Export XLSX</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="tab-nav" role="tablist">
+                        <button class="tab-btn active" data-tab="drawing-list" role="tab" aria-selected="true">Drawing List</button>
+                        <button class="tab-btn" data-tab="naming-checker" role="tab" aria-selected="false">Naming Checker</button>
+                        <button class="tab-btn" data-tab="qa-qc" role="tab" aria-selected="false">QA-QC Validation</button>
+                    </div>
+
+                    <div class="table-container">
+                        <!-- Drawing List Tab -->
+                        <div id="drawing-list-content" class="tab-content active" role="tabpanel">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Excel Drawing Name</th>
+                                        <th>Matched File Name</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="drawingListResults">
+                                    <!-- Data will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Naming Checker Tab -->
+                        <div id="naming-checker-content" class="tab-content" role="tabpanel">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>Folder Path</th>
+                                        <th>File Name</th>
+                                        <th>Compliance Status</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="namingResults">
+                                    <!-- Data will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- QA-QC Tab -->
+                        <div id="qa-qc-content" class="tab-content" role="tabpanel">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th class="wrap-text">Sheet Number</th>
+                                        <th>Sheet Name</th>
+                                        <th class="wrap-text">File Name</th>
+                                        <th>Rev Code</th>
+                                        <th>Rev Date</th>
+                                        <th>Rev Description</th>
+                                        <th>Suitability</th>
+                                        <th>Stage</th>
+                                        <th>Naming Status</th>
+                                        <th>File Delivery</th>
+                                        <th>Comments</th>
+                                        <th>Title Block</th>
+                                        <th>Compliance Status</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="qaqcResults">
+                                    <!-- Data will be populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('SW registered'))
+                    .catch(error => console.log('SW registration failed'));
+            });
+        }
+    </script>
+
+    <!-- Main Application Script -->
+    <script src="script-clash.js"></script>
+    
+    <!-- Modern Enhancements -->
+    <script>
+        // Hide loading screen when app is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+            }, 1000);
+        });
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const icon = document.getElementById('theme-icon');
+            icon.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+        }
+
+        // Enhanced keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                // Close any open modals or dropdowns
+                document.querySelectorAll('.modal, .dropdown').forEach(el => {
+                    el.style.display = 'none';
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

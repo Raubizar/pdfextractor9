@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naming Convention Checker</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Include the XLSX library for reading Excel files with SRI -->
+    <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script type="module" src="script.js"></script>
+</head>
+<body>
+      
+    <div class="container">
+        <a href="https://www.ethoseng.ie/" target="_blank">
+            <img src="company-logo.jpg" alt="Ethos Engineering Logo" class="logo">
+        </a>
+        <h1>Naming Convention Checker</h1>
+
+        <div class="form-and-download">
+            <div class="template-download">
+                <label>1st - Download Naming Convention Template</label>
+                <ul id="template-list">
+                    <li><a href="Naming Convention Template.xlsx" download>Naming Convention Template.xlsx</a></li>
+                </ul>
+            </div>
+            <div class="upload-section">
+                <form id="upload-form">
+                    <label for="file-input">2nd - Upload Your Project Naming Convention:</label>
+                    <input type="file" id="file-input" accept=".xls,.xlsx,.xlsm">
+                </form>
+            </div>            
+        </div>
+
+        <div class="selection-option">
+            <label>3rd - Choose an option to check Naming Convention:</label>
+            <div class="button-group">
+                <button id="folder-select-button">Select Folder with Files</button>
+                <span class="or-text">OR</span>
+                <button id="excel-select-button">Select Excel File with File Names</button>
+            </div>
+        </div>
+
+        <!-- Single path display below the buttons -->
+        <p id="selected-path-display" class="path-display"></p>
+
+        <div id="excel-options" style="display: none;">
+            <label for="sheet-select">Select Sheet:</label>
+            <select id="sheet-select"></select>
+            <label for="column-select">Select Column for File Names:</label>
+            <select id="column-select"></select>
+        </div>
+
+        <div id="processing-popup" class="popup">
+            <div class="popup-content">
+                <p id="loading-animation">Processing may take some time...</p>
+            </div>
+        </div>
+
+        <div id="summary-box">
+            <div class="summary-column">
+                <p>Total Files Verified: <span id="total-files">0</span></p>
+                <p>Names Comply: <span id="names-comply">0</span></p>
+            </div>
+            <div class="summary-column">
+                <p>Compliance Percentage: <span id="compliance-percentage">0%</span></p>
+                <div id="progress-bar-container">
+                    <div class="progress-box" id="box-1"></div>
+                    <div class="progress-box" id="box-2"></div>
+                    <div class="progress-box" id="box-3"></div>
+                    <div class="progress-box" id="box-4"></div>
+                    <div class="progress-box" id="box-5"></div>
+                    <div class="progress-box" id="box-6"></div>
+                    <div class="progress-box" id="box-7"></div>
+                    <div class="progress-box" id="box-8"></div>
+                    <div class="progress-box" id="box-9"></div>
+                    <div class="progress-box" id="box-10"></div>
+                </div>
+            </div>
+        </div>
+
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Folder Path</th>
+                    <th>File Name</th>
+                    <th>Compliance Status</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>   
+       
+        
+        <button id="export-button">4th - Export Results</button>
+    </div>
+    <footer>
+        <p>Beta test version. If you have any feedback, please email <a href="mailto:rubenslage@ethoseng.ie">rubenslage@ethoseng.ie</a></p>
+        <p>Web application developed by Rubens Lage and ChatGPT</p>
+    </footer>
+</body>
+</html>

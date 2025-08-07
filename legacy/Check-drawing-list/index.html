@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Drawing List</title>
+    <link rel="stylesheet" href="styles.css">
+    <script lang="javascript" src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="script.js" defer></script>
+</head>
+
+<body>
+
+    <div class="container">
+        <img src="company-logo.jpg" alt="Company Logo" class="logo">
+        <h1>Check Drawing List</h1>
+
+        <!-- First Excel File Upload -->
+        <div class="upload-section">
+            <label for="file-input">1st - Select Excel with Drawing List:</label>
+            <input type="file" id="file-input" accept=".xls,.xlsx,.xlsm">
+        </div>
+
+        <div id="excel-options" style="display: none;">
+            <label for="sheet-select">Select Sheet:</label>
+            <select id="sheet-select"></select>
+            <label for="column-select">Select Column for Drawing Names:</label>
+            <select id="column-select"></select>
+        </div>
+
+        <!-- Comparison Method Buttons -->
+        <div class="comparison-method">
+            <h2>2nd - Choose Comparison Method:</h2>
+            <button id="folder-select-button">Select Folder with Files</button>
+            <button id="second-file-select-button">Select Second Excel File</button>
+        </div>
+
+        <!-- Folder Path Display -->
+        <div id="folder-path-display" class="path-display" style="display: none;"></div>
+
+        <!-- Second Excel File Upload -->
+        <div id="second-file-upload" class="upload-section" style="display: none;">
+            <label for="second-file-input">Select Excel for Comparison:</label>
+            <input type="file" id="second-file-input" accept=".xls,.xlsx,.xlsm">
+        </div>
+
+        <div id="second-excel-options" style="display: none;">
+            <label for="second-sheet-select">Select Sheet:</label>
+            <select id="second-sheet-select"></select>
+            <label for="second-column-select">Select Column for Comparison:</label>
+            <select id="second-column-select"></select>
+        </div>
+
+        <!-- Check Files Button -->
+        <button id="check-files-button" style="display: none;">Check Files</button>
+
+        <!-- Summary Section -->
+        <div id="summary" style="display: none;">
+            <h2>Summary</h2>
+            <table id="summary-table">
+                <tr>
+                    <th>Total Files in Excel</th>
+                    <td id="total-files-excel (Deliverables List)">0</td>
+                </tr>
+                <tr>
+                    <th>Total Files in Folder/Second Excel</th>
+                    <td id="total-files-folder">0</td>
+                </tr>
+                <tr>
+                    <th>Total Files Matched</th>
+                    <td id="total-files-matched">0</td>
+                </tr>
+                <tr>
+                    <th>Percentage of Files Found</th>
+                    <td id="percentage-found">0%</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Results Table -->
+        <div id="results" style="display: none;">
+            <h2>Results</h2>
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>Excel Drawing Name</th>
+                        <th>Matched File Name</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Export Button -->
+        <button id="export-button" style="display: block; margin-top: 20px;">Export Results to CSV</button>
+    </div>
+
+    <footer>
+        <p>Beta test version. If you have any feedback, please email <a href="mailto:rubenslage@ethoseng.ie">rubenslage@ethoseng.ie</a></p>
+        <p>Web application developed by Rubens Lage and ChatGPT</p>
+    </footer>
+
+</body>
+
+</html>

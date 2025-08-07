@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA-QC Validation App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>QA-QC Validation Application</h1>
+        
+        <div class="upload-section">
+            <label for="fileInput">Upload Title Block Information Excel File:</label>
+            <input type="file" id="fileInput" accept=".xlsx">
+            
+            <label for="namingConventionInput">Upload Naming Convention File (Optional):</label>
+            <input type="file" id="namingConventionInput" accept=".xlsx">
+        </div>
+
+        <div id="input-section">
+            <h2>Expected Values</h2>
+            <label for="revisionCode">Expected Revision Code:</label>
+            <input type="text" id="revisionCode" placeholder="e.g., P01">
+
+            <label for="revisionDate">Expected Revision Date:</label>
+            <input
+              type="text"
+              id="revisionDate"
+              placeholder="e.g., 13.03.2025 or 13/03/25"
+            >
+
+            <label for="suitabilityCode">Expected Suitability Code:</label>
+            <input type="text" id="suitabilityCode" placeholder="e.g., S3">
+
+            <label for="stageDescription">Expected Stage Description:</label>
+            <input type="text" id="stageDescription" placeholder="e.g., Issued for Review">
+
+            <label for="revisionDescription">Expected Revision Description:</label>
+            <input type="text" id="revisionDescription" placeholder="e.g., Some description">
+
+            <label for="separator">Separator (Sheet Number - Sheet Name):</label>
+            <input type="text" id="separator" placeholder="e.g., ' - '" value=" - ">
+
+            <label for="checkOnlySheetNumber">
+              <input type="checkbox" id="checkOnlySheetNumber">
+              Check only Sheet Number
+            </label>
+
+            <button id="processFile">Process Report</button>
+        </div>
+
+        <div id="output-section" style="display:none;">
+            <h2>Validation Report</h2>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Sheet Number</th>
+                        <th>Sheet Name</th>
+                        <th>File Name</th>
+                        <th>Revision Code</th>
+                        <th>Revision Date</th>
+                        <th>Revision Description</th>
+                        <th>Suitability Code</th>
+                        <th>Stage Description</th>
+                        <th>Naming Convention Status</th>
+                        <th>File Delivery Status</th>
+                        <th>Comments</th>
+                        <th>Result</th>
+                        <th>Mismatched Items</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+
+            <div id="summary-section" style="display:none;">
+                <h3>Summary Report</h3>
+                <p>Total Files: <span id="totalFiles">0</span></p>
+                <p>Percentage OK: <span id="percentOK">0%</span></p>
+                <button id="exportReport">Export Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

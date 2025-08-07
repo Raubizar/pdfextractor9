@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Table Population Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .status-badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+        .status-badge.info { background: #e3f2fd; color: #1976d2; }
+        .status-badge.warning { background: #fff3e0; color: #f57c00; }
+        .status-badge.success { background: #e8f5e8; color: #2e7d32; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        button { padding: 10px 15px; margin: 5px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1565c0; }
+        .console-log { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Table Population Diagnostic Test</h1>
+    
+    <div class="test-section">
+        <h2>Quick Test Controls</h2>
+        <button onclick="testTablePopulation()">Test Enhanced Table Population</button>
+        <button onclick="createTestData()">Create Test Data</button>
+        <button onclick="clearTables()">Clear Tables</button>
+        <button onclick="checkTableElements()">Check Table Elements</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <div id="consoleOutput" class="console-log">Console output will appear here...</div>
+    </div>
+    
+    <!-- Simplified table structure for testing -->
+    <div class="test-section">
+        <h2>Test Tables</h2>
+        
+        <h3>Drawing List Results</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Excel Drawing Name</th>
+                    <th>Matched File Name</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="drawingListResults">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+        
+        <h3>Naming Results</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Folder Path</th>
+                    <th>File Name</th>
+                    <th>Compliance Status</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody id="namingResults">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+        
+        <h3>QA-QC Results</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sheet Number</th>
+                    <th>Sheet Name</th>
+                    <th>File Name</th>
+                    <th>Rev Code</th>
+                    <th>Rev Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="qaqcResults">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Override console.log to show in our div
+        const originalLog = console.log;
+        const originalError = console.error;
+        const consoleDiv = document.getElementById('consoleOutput');
+        
+        function addToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            consoleDiv.innerHTML += logEntry + '<br>';
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+            
+            // Also log to real console
+            if (type === 'error') {
+                originalError(message);
+            } else {
+                originalLog(message);
+            }
+        }
+        
+        console.log = function(...args) {
+            addToConsole(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            addToConsole(args.join(' '), 'error');
+        };
+        
+        // Test data
+        let uploadedFiles = [];
+        let titleBlockData = [];
+        let fileResultsFromFolder = [];
+        
+        function createTestData() {
+            uploadedFiles = [
+                { name: 'TEST-001-P01.pdf', path: 'drawings/TEST-001-P01.pdf', file: {} },
+                { name: 'TEST-002-P02.pdf', path: 'drawings/TEST-002-P02.pdf', file: {} },
+                { name: 'TEST-003-P01.dwg', path: 'drawings/TEST-003-P01.dwg', file: {} },
+                { name: 'PLAN-A-001-P01.pdf', path: 'drawings/PLAN-A-001-P01.pdf', file: {} },
+                { name: 'ELEV-B-002-P02.dwg', path: 'drawings/ELEV-B-002-P02.dwg', file: {} }
+            ];
+            fileResultsFromFolder = uploadedFiles;
+            
+            titleBlockData = [
+                {
+                    sheetNumber: 'TEST-001',
+                    sheetName: 'Test Drawing 1',
+                    fileName: 'TEST-001-P01.pdf',
+                    revisionCode: 'P01',
+                    revisionDate: '2025-01-01',
+                    revisionDescription: 'For Information',
+                    suitabilityCode: 'S0',
+                    stageDescription: 'Stage 0'
+                },
+                {
+                    sheetNumber: 'TEST-002',
+                    sheetName: 'Test Drawing 2', 
+                    fileName: 'TEST-002-P02.pdf',
+                    revisionCode: 'P02',
+                    revisionDate: '2025-01-02',
+                    revisionDescription: 'For Review',
+                    suitabilityCode: 'S1',
+                    stageDescription: 'Stage 1'
+                }
+            ];
+            
+            console.log('✅ Test data created:');
+            console.log(`  - uploadedFiles: ${uploadedFiles.length} files`);
+            console.log(`  - titleBlockData: ${titleBlockData.length} entries`);
+        }
+        
+        function validateAllData() {
+            return {
+                hasUploadedFiles: uploadedFiles && uploadedFiles.length > 0,
+                hasFileResults: fileResultsFromFolder && fileResultsFromFolder.length > 0,
+                hasTitleBlocks: titleBlockData && titleBlockData.length > 0,
+                folderFiles: uploadedFiles || fileResultsFromFolder || [],
+                folderFilesCount: (uploadedFiles || fileResultsFromFolder || []).length,
+                titleBlocksCount: titleBlockData ? titleBlockData.length : 0
+            };
+        }
+        
+        // Simplified version of the enhanced table population function
+        function populateInitialTablesEnhanced() {
+            console.log('=== ENHANCED TABLE POPULATION STARTED ===');
+            
+            try {
+                // Get table elements
+                const drawingTable = document.getElementById('drawingListResults');
+                const namingTable = document.getElementById('namingResults');
+                const qaqcTable = document.getElementById('qaqcResults');
+                
+                console.log('🔍 Table elements status:', {
+                    drawingTable: !!drawingTable,
+                    namingTable: !!namingTable,
+                    qaqcTable: !!qaqcTable
+                });
+                
+                // Clear existing content
+                if (drawingTable) drawingTable.innerHTML = '';
+                if (namingTable) namingTable.innerHTML = '';
+                if (qaqcTable) qaqcTable.innerHTML = '';
+                
+                // Get data
+                const dataStatus = validateAllData();
+                const folderFiles = dataStatus.folderFiles || [];
+                
+                console.log('📊 Data status:', {
+                    folderFilesCount: folderFiles.length,
+                    hasTitleBlocks: dataStatus.hasTitleBlocks
+                });
+                
+                // Populate Naming Checker
+                if (namingTable && folderFiles.length > 0) {
+                    console.log('📝 Populating Naming Checker...');
+                    const namingContent = folderFiles.map((file) => {
+                        const fileName = file.name || 'Unknown';
+                        const fileExt = fileName.split('.').pop()?.toUpperCase() || 'Unknown';
+                        const hasRevision = /[._-][PR]\\d{2}[._-]|[._-]REV[._-]/i.test(fileName);
+                        
+                        return `
+                            <tr>
+                                <td>${file.path || file.name}</td>
+                                <td>${fileName}</td>
+                                <td><span class="status-badge ${hasRevision ? 'info' : 'warning'}">Preview: ${hasRevision ? 'Pattern Found' : 'Check Required'}</span></td>
+                                <td>${fileExt} file${hasRevision ? ', has revision pattern' : ', no revision pattern detected'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    namingTable.innerHTML = namingContent;
+                    console.log(`✅ Naming Checker populated with ${folderFiles.length} entries`);
+                }
+                
+                // Populate Drawing List
+                if (drawingTable && folderFiles.length > 0) {
+                    console.log('📋 Populating Drawing List...');
+                    const drawingContent = folderFiles.map((file, index) => {
+                        return `
+                            <tr>
+                                <td>${index + 1}. ${file.name}</td>
+                                <td>${file.name}</td>
+                                <td><span class="status-badge info">Preview: File Available</span></td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    drawingTable.innerHTML = drawingContent;
+                    console.log(`✅ Drawing List populated with ${folderFiles.length} entries`);
+                }
+                
+                // Populate QA-QC
+                if (qaqcTable && titleBlockData && titleBlockData.length > 0) {
+                    console.log('📊 Populating QA-QC...');
+                    const qaqcContent = titleBlockData.map((tbData) => {
+                        return `
+                            <tr>
+                                <td>${tbData.sheetNumber || 'N/A'}</td>
+                                <td>${tbData.sheetName || 'N/A'}</td>
+                                <td>${tbData.fileName || 'N/A'}</td>
+                                <td>${tbData.revisionCode || 'N/A'}</td>
+                                <td>${tbData.revisionDate || 'N/A'}</td>
+                                <td><span class="status-badge info">Preview: Available</span></td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    qaqcTable.innerHTML = qaqcContent;
+                    console.log(`✅ QA-QC populated with ${titleBlockData.length} entries`);
+                }
+                
+                // Final count
+                const finalValidation = {
+                    drawingRows: drawingTable ? drawingTable.children.length : 0,
+                    namingRows: namingTable ? namingTable.children.length : 0,
+                    qaqcRows: qaqcTable ? qaqcTable.children.length : 0
+                };
+                
+                console.log('📊 Final table population status:', finalValidation);
+                const totalRows = finalValidation.drawingRows + finalValidation.namingRows + finalValidation.qaqcRows;
+                console.log(`✅ Successfully populated ${totalRows} total rows!`);
+                
+            } catch (error) {
+                console.error('❌ Error in table population:', error);
+            }
+        }
+        
+        function testTablePopulation() {
+            console.log('🧪 Starting table population test...');
+            if (uploadedFiles.length === 0) {
+                console.log('⚠️ No test data found. Creating test data first...');
+                createTestData();
+            }
+            populateInitialTablesEnhanced();
+        }
+        
+        function clearTables() {
+            const tables = ['drawingListResults', 'namingResults', 'qaqcResults'];
+            tables.forEach(id => {
+                const table = document.getElementById(id);
+                if (table) table.innerHTML = '';
+            });
+            console.log('🧹 Tables cleared');
+        }
+        
+        function checkTableElements() {
+            const tables = ['drawingListResults', 'namingResults', 'qaqcResults'];
+            tables.forEach(id => {
+                const element = document.getElementById(id);
+                console.log(`Table ${id}: ${element ? 'Found' : 'NOT FOUND'}`);
+                if (element) {
+                    console.log(`  - Rows: ${element.children.length}`);
+                    console.log(`  - Parent: ${element.parentElement?.tagName}`);
+                }
+            });
+        }
+        
+        // Initial setup
+        console.log('Test page loaded. Use the buttons above to test table population.');
+    </script>
+</body>
+</html>
